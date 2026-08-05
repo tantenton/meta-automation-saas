@@ -42,7 +42,7 @@ export async function refreshAccessToken(
         .from('users')
         .update({
           meta_access_token: newTokens.accessToken,
-          meta_token_expiry: new Date(Date.now() + newTokens.expires_in * 1000).toISOString(),
+          meta_token_expiry: new Date(Date.now() + newTokens.expiresIn * 1000).toISOString(),
         })
         .eq('id', userId);
 
@@ -52,7 +52,7 @@ export async function refreshAccessToken(
 
       return {
         accessToken: newTokens.accessToken,
-        expiryTime: new Date(Date.now() + newTokens.expires_in * 1000).toISOString(),
+        expiryTime: new Date(Date.now() + newTokens.expiresIn * 1000).toISOString(),
       };
     } catch (error) {
       console.error('Token refresh failed:', error);
@@ -82,7 +82,7 @@ export async function exchangeAndSaveToken(
   const shortLived = await getLongLivedToken(code);
 
   // Save to database
-  const expiryDate = new Date(Date.now() + shortLived.expires_in * 1000);
+  const expiryDate = new Date(Date.now() + shortLived.expiresIn * 1000);
 
   const { error } = await supabase
     .from('users')

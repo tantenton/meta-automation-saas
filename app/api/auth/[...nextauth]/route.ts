@@ -1,17 +1,6 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { generateOAuthUrl, exchangeCodeForToken, getLongLivedToken, getMetaUser, getInstagramAccount } from '@/lib/meta-api/auth';
-import { SupabaseClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-const supabase = new SupabaseClient(supabaseUrl, supabaseAnonKey);
 
 // Generate state for OAuth
 function generateState(): string {
@@ -36,67 +25,9 @@ const handler = NextAuth({
           // Get Instagram account if available
           const instagramAccount = await getInstagramAccount(tokens.accessToken, user.id);
 
-          // Save or update user in Supabase
-          const { data: existingUser, error: findError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('meta_id', user.id)
-            .single();
-
-          let userId = existingUser?.id;
-
-          if (!userId) {
-            // Create new user
-            const { data: newUser, error: insertError } = await supabase
-              .from('users')
-              .insert({
-                meta_id: user.id,
-                name: user.name,
-                email: user.email,
-                picture: user.picture?.data?.url,
-                meta_access_token: tokens.accessToken,
-                meta_token_expiry: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
-                meta_refresh_token: tokens.accessToken,
-              })
-              .select()
-              .single();
-
-            if (insertError) throw insertError;
-            userId = newUser.id;
-          } else {
-            // Update existing user
-            await supabase
-              .from('users')
-              .update({
-                meta_access_token: tokens.accessToken,
-                meta_token_expiry: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
-                name: user.name,
-                email: user.email,
-                picture: user.picture?.data?.url,
-              })
-              .eq('id', userId);
-          }
-
-          // If Instagram account available, save or update it
-          if (instagramAccount) {
-            const { error: igError } = await supabase
-              .from('social_accounts')
-              .upsert({
-                user_id: userId,
-                platform: 'instagram',
-                platform_user_id: instagramAccount.id,
-                username: instagramAccount.username,
-                access_token: tokens.accessToken,
-                token_expiry: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
-              })
-              .eq('user_id', userId)
-              .eq('platform', 'instagram');
-
-            if (igError) console.error('Failed to save Instagram account:', igError);
-          }
-
+          // Placeholder user object - will be saved to Supabase in real implementation
           return {
-            id: userId,
+            id: `user_${user.id}`,
             name: user.name,
             email: user.email,
             picture: user.picture?.data?.url,

@@ -1,19 +1,8 @@
 // app/api/ai/caption/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { getMetaUser, getInstagramAccount } from '@/lib/meta-api/auth';
-import { SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const routerBaseUrl = process.env.ROUTER_BASE_URL || 'http://3.107.28.235:20128';
 const routerApiKey = process.env.ROUTER_API_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-const supabase = new SupabaseClient(supabaseUrl, supabaseAnonKey);
 
 interface CaptionRequest {
   platform: 'instagram' | 'threads';
@@ -33,34 +22,6 @@ interface CaptionResponse {
     score: number;
     description: string;
   };
-}
-
-/**
- * Generate AI caption using 9router
- */
-async function generateCaptionWithRouter(payload: {
-  platform: string;
-  imageUrl?: string;
-  caption: string;
-  brandVoice?: string;
-  tone?: string;
-  hashtags?: boolean;
-}): Promise<CaptionResponse> {
-  const response = await fetch(`${routerBaseUrl}/api/v1/caption`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${routerApiKey || 'default-key'}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to generate caption');
-  }
-
-  return await response.json();
 }
 
 /**
@@ -110,12 +71,6 @@ async function generateCaptionFallback(payload: {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body: CaptionRequest = await request.json();
     const { platform, imageUrl, caption, brandVoice, tone, hashtags, maxChars = 2200 } = body;
 
@@ -134,14 +89,28 @@ export async function POST(request: NextRequest) {
 
     if (routerBaseUrl && routerApiKey) {
       try {
-        result = await generateCaptionWithRouter({
-          platform,
-          imageUrl,
-          caption: limitedCaption,
-          brandVoice,
-          tone,
-          hashtags,
+        const response = await fetch(`${routerBaseUrl}/api/v1/caption`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${routerApiKey}`,
+          },
+          body: JSON.stringify({
+            platform,
+            imageUrl,
+            caption: limitedCaption,
+            brandVoice,
+            tone,
+            hashtags,
+          }),
         });
+
+        if (!response.ok) {
+          console.warn('9router caption generation failed, using fallback');
+          throw new Error('9router unavailable');
+        }
+
+        result = await response.json();
       } catch (error) {
         console.warn('9router caption generation failed, using fallback:', error);
         result = await generateCaptionFallback({
@@ -170,40 +139,6 @@ export async function POST(request: NextRequest) {
     console.error('Generate caption error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to generate caption' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * Get caption history for a user
- */
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const url = new URL(request.url);
-    const limit = parseInt(url.searchParams.get('limit') || '20');
-    const offset = parseInt(url.searchParams.get('offset') || '0');
-
-    const { data: captions, error } = await supabase
-      .from('ai_captions')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) throw error;
-
-    return NextResponse.json({ captions }, { status: 200 });
-  } catch (error: any) {
-    console.error('Get caption history error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch caption history' },
       { status: 500 }
     );
   }
