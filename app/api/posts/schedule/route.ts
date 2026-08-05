@@ -6,7 +6,7 @@ export async function POST(request: Request) {
     const { caption, platform, imageUrl, scheduledAt } = body;
 
     // Validate required fields
-    if (!caption || !platform || !scheduledAt) {
+    if (!caption || !platform) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
