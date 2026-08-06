@@ -27,8 +27,9 @@ export async function POST(request: NextRequest) {
     const input = schema.parse(await request.json());
     const ownerId = process.env.HERMES_OWNER_USER_ID;
     if (!ownerId) return NextResponse.json({ error: 'server_not_configured', message: 'HERMES_OWNER_USER_ID is missing' }, { status: 503 });
-    const tokenInfo = await validateMetaToken(input.platform, input.access_token).catch((error) => {
-      throw new Error(`Token validation failed: ${error instanceof Error ? error.message : String(error)}`);
+    const tokenInfo = await validateMetaToken(input.platform, input.access_token).catch((err) => {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      throw new Error(`Token validation failed: ${msg}`);
     });
     const db = getSupabaseAdmin();
     const { data, error } = await db.from('accounts').upsert({
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       token_last_validated_at: new Date().toISOString(),
       is_active: true,
     }, { onConflict: 'user_id,platform,account_id' }).select('id,platform,account_id,account_name,is_active,token_expires_at').single();
-    if (error) throw error;
+    if (error) throw new Error(error.message || JSON.stringify(error));
     return NextResponse.json({ account: data }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: 'validation_error', issues: error.issues }, { status: 400 });

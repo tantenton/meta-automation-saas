@@ -1,6 +1,7 @@
 const VERSION = process.env.META_GRAPH_VERSION || 'v23.0';
 const FACEBOOK_GRAPH = `https://graph.facebook.com/${VERSION}`;
-const THREADS_GRAPH = `https://graph.threads.net/${VERSION}`;
+// Threads API uses v1.0 regardless of META_GRAPH_VERSION
+const THREADS_GRAPH = 'https://graph.threads.net/v1.0';
 
 export class MetaApiError extends Error {
   constructor(message: string, public status: number, public details?: unknown) {
@@ -28,7 +29,8 @@ function addToken(url: URL, token: string) {
 }
 
 export async function validateMetaToken(platform: 'instagram' | 'threads', token: string): Promise<Record<string, unknown>> {
-  const base = platform === 'threads' ? THREADS_GRAPH : FACEBOOK_GRAPH;
+  // Threads API does not use versioned endpoints for /me
+  const base = platform === 'threads' ? 'https://graph.threads.net' : FACEBOOK_GRAPH;
   const url = addToken(new URL(`${base}/me`), token);
   url.searchParams.set('fields', platform === 'threads' ? 'id,username' : 'id,name');
   return metaFetch(url) as Promise<Record<string, unknown>>;
