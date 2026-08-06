@@ -7,6 +7,79 @@ const META_APP_ID = process.env.META_APP_ID;
 const META_APP_SECRET = process.env.META_APP_SECRET;
 const META_REDIRECT_URI = process.env.META_REDIRECT_URI || 'http://localhost:3000/api/auth/callback/meta';
 
+// Instagram Login (Route A) — no Facebook Page required
+const IG_APP_ID = process.env.IG_APP_ID || META_APP_ID; // same app if Instagram Login product added
+const IG_APP_SECRET = process.env.IG_APP_SECRET || META_APP_SECRET;
+const IG_REDIRECT_URI = process.env.IG_REDIRECT_URI || 'https://localhost';
+
+/**
+ * Generate OAuth URL for Instagram Login (Route A)
+ * Uses api.instagram.com — does NOT require Facebook Page
+ * Requires "Instagram API with Instagram Login" product in Meta app
+ */
+export function generateInstagramOAuthUrl(state: string): string {
+  const url = new URL('https://api.instagram.com/oauth/authorize');
+  url.searchParams.set('client_id', IG_APP_ID || '');
+  url.searchParams.set('redirect_uri', IG_REDIRECT_URI);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('state', state);
+  url.searchParams.set('scope', 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments,instagram_business_manage_messages');
+  return url.toString();
+}
+
+/**
+ * Exchange authorization code for Instagram access token (Route A)
+ */
+export async function exchangeInstagramCode(code: string): Promise<{ access_token: string; user_id: string }> {
+  const params = new URLSearchParams({
+    client_id: IG_APP_ID || '',
+    client_secret: IG_APP_SECRET || '',
+    grant_type: 'authorization_code',
+    redirect_uri: IG_REDIRECT_URI,
+    code,
+  });
+  const res = await fetch('https://api.instagram.com/oauth/access_token', {
+    method: 'POST',
+    body: params,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Instagram token exchange failed: ${JSON.stringify(err)}`);
+  }
+  return res.json();
+}
+
+/**
+ * Exchange short-lived Instagram token for long-lived token (60 days)
+ */
+export async function getLongLivedInstagramToken(shortToken: string): Promise<{ access_token: string; token_type: string; expires_in: number }> {
+  const url = new URL('https://graph.instagram.com/access_token');
+  url.searchParams.set('grant_type', 'ig_exchange_token');
+  url.searchParams.set('client_secret', IG_APP_SECRET || '');
+  url.searchParams.set('access_token', shortToken);
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Instagram long-lived token exchange failed: ${JSON.stringify(err)}`);
+  }
+  return res.json();
+}
+
+/**
+ * Get Instagram user info via Route A (graph.instagram.com)
+ */
+export async function getInstagramUser(accessToken: string): Promise<{ id: string; username: string; account_type?: string; name?: string }> {
+  const url = new URL('https://graph.instagram.com/v21.0/me');
+  url.searchParams.set('fields', 'id,username,account_type,name,profile_picture_url,followers_count');
+  url.searchParams.set('access_token', accessToken);
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Failed to fetch Instagram user: ${JSON.stringify(err)}`);
+  }
+  return res.json();
+}
+
 export interface MetaTokens {
   accessToken: string;
   refreshToken?: string;

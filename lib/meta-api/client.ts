@@ -29,10 +29,15 @@ function addToken(url: URL, token: string) {
 }
 
 export async function validateMetaToken(platform: 'instagram' | 'threads', token: string): Promise<Record<string, unknown>> {
-  // Threads API does not use versioned endpoints for /me
-  const base = platform === 'threads' ? 'https://graph.threads.net' : FACEBOOK_GRAPH;
-  const url = addToken(new URL(`${base}/me`), token);
-  url.searchParams.set('fields', platform === 'threads' ? 'id,username' : 'id,name');
+  if (platform === 'threads') {
+    // Threads API does not use versioned endpoints for /me
+    const url = addToken(new URL('https://graph.threads.net/me'), token);
+    url.searchParams.set('fields', 'id,username');
+    return metaFetch(url) as Promise<Record<string, unknown>>;
+  }
+  // Instagram Route A — uses graph.instagram.com
+  const url = addToken(new URL('https://graph.instagram.com/v21.0/me'), token);
+  url.searchParams.set('fields', 'id,username,account_type,name');
   return metaFetch(url) as Promise<Record<string, unknown>>;
 }
 
