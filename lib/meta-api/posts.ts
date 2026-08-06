@@ -45,6 +45,7 @@ export async function publishInstagramPost(
  * Schedule a post (create in DB, actual publish handled by cron worker)
  */
 export async function schedulePost(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   userId: string,
   accountId: string,
@@ -72,10 +73,12 @@ export async function schedulePost(
  * Get posts list for an account
  */
 export async function getPosts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   accountId: string,
   limit: number = 20,
   offset: number = 0
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<{ posts: any[]; total: number }> {
   const { data, error, count } = await supabase
     .from('posts')
@@ -121,6 +124,7 @@ export async function getPostAnalytics(
   const data = await res.json();
   const stats: PostStats = { reach: 0, impressions: 0, likes: 0, comments: 0, shares: 0, saves: 0 };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data.data.forEach((item: any) => {
     if (item.values[0]) {
       stats[item.name as keyof PostStats] = item.values[0].value || 0;
@@ -200,6 +204,7 @@ export async function withRateLimitRetry<T>(
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       if (error instanceof RateLimitError) {
         lastError = error;

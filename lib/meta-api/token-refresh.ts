@@ -15,6 +15,7 @@ export function isTokenExpiring(accessToken: string, expiryTime: string): boolea
  * Refresh token if needed
  */
 export async function refreshAccessToken(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   userId: string
 ): Promise<{ accessToken: string; expiryTime: string }> {
@@ -74,6 +75,7 @@ export async function refreshAccessToken(
  * Exchange short-lived code for long-lived token
  */
 export async function exchangeAndSaveToken(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   userId: string,
   code: string

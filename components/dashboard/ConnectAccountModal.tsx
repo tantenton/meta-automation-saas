@@ -97,7 +97,7 @@ export default function ConnectAccountModal({
 
         <p className="mt-4 text-xs text-muted-foreground">
           By connecting your account, you agree to our Terms of Service and Privacy
-          Policy. We'll use OAuth to securely authenticate your platform.
+          Policy. We&apos;ll use OAuth to securely authenticate your platform.
         </p>
       </div>
     </div>

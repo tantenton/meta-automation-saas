@@ -1,0 +1,27 @@
+Gunakan Meta Automation API sebagai satu-satunya jalur publish Instagram dan Threads.
+
+Environment:
+- META_AUTOMATION_BASE_URL
+- META_AUTOMATION_API_KEY
+
+Workflow wajib:
+1. GET /api/v1/health dan pastikan configured=true.
+2. GET /api/v1/accounts lalu pilih account UUID yang sesuai platform.
+3. Upload asset lokal dengan multipart POST /api/v1/media/upload, field `file`.
+4. Simpan `public_url` dan `media_id` dari response.
+5. POST /api/v1/posts dengan:
+   - account_id
+   - content_id
+   - revision
+   - caption
+   - media_url
+   - media_type
+   - publish_now=true atau scheduled_at
+   - idempotency_key = content_id-platform-revision
+6. Untuk publish langsung, POST /api/v1/posts/{id}/publish.
+7. Poll GET /api/v1/posts/{id} sampai published atau failed.
+8. Sukses hanya jika meta_post_id tersedia; simpan permalink jika tersedia.
+9. Jangan membuat job baru dengan idempotency key berbeda hanya karena request timeout.
+10. Jika request timeout, GET status job lama terlebih dahulu.
+11. Jangan pernah mencetak API key, Meta token, service-role key, atau encryption key ke log/Telegram.
+12. Computer-use hanya untuk generate media di Flow, bukan untuk posting Meta.

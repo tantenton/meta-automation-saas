@@ -69,7 +69,7 @@ export default function DashboardPage() {
       <div>
         <h2 className="text-2xl font-bold text-white">Welcome back 👋</h2>
         <p className="mt-1 text-sm" style={{ color: '#6b7280' }}>
-          Here's what's happening with your social accounts today.
+          Here&apos;s what&apos;s happening with your social accounts today.
         </p>
       </div>
 

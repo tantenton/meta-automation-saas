@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Meta Automation API
 
-## Getting Started
+API-first publisher for Hermes. Google Flow/browser automation creates media; this service uploads and publishes it to Instagram or Threads without Chrome focus/CDP.
 
-First, run the development server:
+## What is production-backed
+
+- Bearer API-key authentication for Hermes
+- Supabase Storage multipart uploads
+- Encrypted Meta access tokens at rest (AES-256-GCM)
+- Real posts table, scheduling, job status and retries
+- Idempotency keys to prevent duplicate posts
+- Instagram image/Reels container creation, status polling and publish
+- Threads text/image/video container creation, status polling and publish
+- Permalink lookup after publish
+- Cron/worker endpoint for scheduled jobs
+
+## Setup
+
+1. Create a Supabase project.
+2. Run `supabase/schema.sql`, then `supabase/migrations/20260806_production_api.sql`.
+3. Create one owner row in `users` and set its UUID as `HERMES_OWNER_USER_ID`.
+4. Copy `.env.example` to `.env.local` and fill every required value.
+5. Install and run:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+npm run build
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Connect an account
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The token must already have the required Meta permissions. Tokens are validated, encrypted and never returned by list endpoints.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+curl -X POST "$BASE/api/v1/accounts" \
+  -H "Authorization: Bearer $HERMES_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platform":"threads",
+    "platform_account_id":"THREADS_USER_ID",
+    "account_name":"Gisella",
+    "access_token":"META_ACCESS_TOKEN"
+  }'
+```
 
-## Learn More
+## Upload local media
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+curl -X POST "$BASE/api/v1/media/upload" \
+  -H "Authorization: Bearer $HERMES_API_KEY" \
+  -F "file=@C:/path/video.mp4"
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Use `public_url` from the response.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Create a publish job
 
-## Deploy on Vercel
+```bash
+curl -X POST "$BASE/api/v1/posts" \
+  -H "Authorization: Bearer $HERMES_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_id":"SUPABASE_ACCOUNT_UUID",
+    "content_id":"cnt_1786010357",
+    "revision":1,
+    "caption":"Caption final",
+    "media_url":"PUBLIC_MEDIA_URL",
+    "media_type":"video",
+    "publish_now":true,
+    "idempotency_key":"cnt_1786010357-threads-r1"
+  }'
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Then publish synchronously:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+curl -X POST "$BASE/api/v1/posts/POST_UUID/publish" \
+  -H "Authorization: Bearer $HERMES_API_KEY"
+```
+
+Or let cron process queued/scheduled jobs:
+
+```bash
+curl "$BASE/api/v1/worker/run?limit=5" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Poll status:
+
+```bash
+curl "$BASE/api/v1/posts/POST_UUID" \
+  -H "Authorization: Bearer $HERMES_API_KEY"
+```
+
+A completed job has `status=published`, `meta_post_id`, and normally `permalink`.
+
+## Operational notes
+
+- The `meta-media` bucket is public because Meta must fetch the file from its servers. Use unguessable generated paths and lifecycle cleanup.
+- Do not expose the service-role key to the browser.
+- Run the worker once per minute using Vercel Cron, GitHub Actions, systemd timer, or another trusted scheduler.
+- Reusing an idempotency key returns the existing post instead of creating a duplicate.
+- Meta API version is configurable through `META_GRAPH_VERSION`; verify it against the app's supported version before deploy.

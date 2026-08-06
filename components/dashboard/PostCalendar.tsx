@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface Post {
   id: string;
@@ -19,7 +19,6 @@ interface CalendarDay {
 
 export default function PostCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [days, setDays] = useState<CalendarDay[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
 
   useEffect(() => {
@@ -38,11 +37,7 @@ export default function PostCalendar() {
     fetchPosts();
   }, []);
 
-  useEffect(() => {
-    generateCalendar();
-  }, [currentDate, posts]);
-
-  const generateCalendar = () => {
+  const days = useMemo<CalendarDay[]>(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
@@ -53,12 +48,10 @@ export default function PostCalendar() {
 
     const calendarDays: CalendarDay[] = [];
 
-    // Empty cells for days before the first day of the month
     for (let i = 0; i < startingDayOfWeek; i++) {
       calendarDays.push({ date: new Date(year, month, i - startingDayOfWeek + 1), hasPosts: false, posts: [] });
     }
 
-    // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const dayPosts = posts.filter((post) => {
@@ -77,8 +70,8 @@ export default function PostCalendar() {
       });
     }
 
-    setDays(calendarDays);
-  };
+    return calendarDays;
+  }, [currentDate, posts]);
 
   const prevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));

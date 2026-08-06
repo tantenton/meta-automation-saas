@@ -22,12 +22,24 @@ const stats = [
   { label: 'Posts Published', value: '0', change: 'Connect accounts first', color: '#f59e0b', up: false },
 ];
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipPayloadItem {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-xl px-4 py-3 text-sm" style={{ backgroundColor: '#1a1a2e', border: '1px solid #2a2a3e' }}>
         <p className="font-semibold text-white mb-1">{label}</p>
-        {payload.map((p: any) => (
+        {payload.map((p: TooltipPayloadItem) => (
           <p key={p.name} style={{ color: p.color }}>
             {p.name}: <span className="font-bold text-white">{p.value.toLocaleString()}</span>
           </p>
