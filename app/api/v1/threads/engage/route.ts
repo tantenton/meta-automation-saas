@@ -121,9 +121,12 @@ export async function POST(request: NextRequest) {
               reply_drafted: draftedReply,
               reply_status: draftedReply ? 'pending' : 'skipped',
             });
-          } else if (existing.reply_status === 'pending' && !existing) {
-            await db.from('post_comments').update({ reply_drafted: draftedReply })
-              .eq('comment_id', commentId);
+          } else if (existing.reply_status === 'pending') {
+            // Re-draft if pending but no reply yet
+            await db.from('post_comments').update({
+              reply_drafted: draftedReply,
+              reply_status: draftedReply ? 'pending' : 'skipped',
+            }).eq('comment_id', commentId);
           }
 
           const result: Record<string, unknown> = {
