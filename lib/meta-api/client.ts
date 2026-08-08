@@ -122,7 +122,23 @@ export async function replyToThreadsPost(input: {
   return { containerId, postId: data.id as string };
 }
 
-export async function getPermalink(platform: 'instagram' | 'threads', token: string, postId: string): Promise<string | null> {
+export async function publishFacebookPost(input: {
+  token: string;
+  pageId: string;
+  message: string;
+  published?: boolean; // false = draft
+  link?: string;
+}): Promise<string> {
+  const url = addToken(new URL(`${FACEBOOK_GRAPH}/${input.pageId}/feed`), input.token);
+  const body = new URLSearchParams({ message: input.message });
+  if (input.published === false) body.set('published', 'false');
+  if (input.link) body.set('link', input.link);
+  const data = await metaFetch(url, { method: 'POST', body }) as Record<string, unknown>;
+  if (!data.id) throw new Error(`Facebook post failed: ${JSON.stringify(data)}`);
+  return data.id as string;
+}
+
+export async function getPermalink(platform: 'instagram' | 'threads' | 'facebook', token: string, postId: string): Promise<string | null> {
   const base = platform === 'threads' ? THREADS_GRAPH : FACEBOOK_GRAPH;
   const url = addToken(new URL(`${base}/${postId}`), token);
   url.searchParams.set('fields', 'id,permalink');

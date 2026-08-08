@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from './supabase-admin';
 import {
   createInstagramContainer, createThreadsContainer, getInstagramContainerStatus,
   getThreadsContainerStatus, getPermalink, publishInstagramContainer, publishThreadsContainer,
+  publishFacebookPost,
 } from '@/lib/meta-api/client';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -43,6 +44,23 @@ export async function processPost(postId: string) {
   try {
     let containerId = post.meta_media_id as string | null;
     if (!containerId) {
+      if (account.platform === 'facebook') {
+        // Facebook Page posting — direct, no container
+        const pageId = account.account_id as string;
+        const fbPostId = await publishFacebookPost({
+          token,
+          pageId,
+          message: post.content,
+          published: true,
+        });
+        const permalink = await getPermalink('facebook', token, fbPostId).catch(() => null);
+        const { data: done, error: updateError } = await db.from('posts').update({
+          status: 'published', meta_post_id: fbPostId, permalink,
+          published_at: new Date().toISOString(), error_message: null,
+        }).eq('id', post.id).select('*').single();
+        if (updateError) throw updateError;
+        return done;
+      }
       containerId = account.platform === 'instagram'
         ? await createInstagramContainer({ token, accountId: account.account_id, caption: post.content, mediaUrl, mediaType: mediaType === 'video' ? 'video' : 'image' })
         : await createThreadsContainer({ token, accountId: account.account_id, text: post.content, mediaUrl, mediaType });
