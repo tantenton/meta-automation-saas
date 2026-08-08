@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     // Get active targets
     const { data: targets } = await db.from('outbound_targets')
-      .select('*').eq('account_id', account.id).eq('is_active', true)
+      .select('*').eq('account_id', account.id as string).eq('is_active', true)
       .order('last_scanned_at', { ascending: true, nullsFirst: true })
       .limit(20);
 

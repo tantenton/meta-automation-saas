@@ -19,7 +19,7 @@ export async function GET() {
   const url = new URL('https://threads.net/oauth/authorize');
   url.searchParams.set('client_id', THREADS_APP_ID);
   url.searchParams.set('redirect_uri', REDIRECT_URI);
-  url.searchParams.set('scope', 'threads_basic,threads_content_publish,threads_manage_replies,threads_read_replies');
+  url.searchParams.set('scope', 'threads_basic,threads_content_publish,threads_manage_replies,threads_read_replies,threads_profile_discovery');
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('state', state);
 
