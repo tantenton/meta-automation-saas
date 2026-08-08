@@ -93,6 +93,35 @@ export async function publishThreadsContainer(token: string, accountId: string, 
   return data.id as string;
 }
 
+export async function getThreadsReplies(token: string, postId: string, fields = 'id,text,username,timestamp,has_replies'): Promise<Record<string, unknown>> {
+  const url = addToken(new URL(`${THREADS_GRAPH}/${postId}/replies`), token);
+  url.searchParams.set('fields', fields);
+  return metaFetch(url) as Promise<Record<string, unknown>>;
+}
+
+export async function getThreadsConversation(token: string, postId: string, fields = 'id,text,username,timestamp,has_replies,replied_to'): Promise<Record<string, unknown>> {
+  const url = addToken(new URL(`${THREADS_GRAPH}/${postId}/conversation`), token);
+  url.searchParams.set('fields', fields);
+  return metaFetch(url) as Promise<Record<string, unknown>>;
+}
+
+export async function replyToThreadsPost(input: {
+  token: string; accountId: string; text: string; replyToId: string;
+}): Promise<{ containerId: string; postId: string }> {
+  // Create container as reply
+  const containerId = await createThreadsContainer({
+    token: input.token,
+    accountId: input.accountId,
+    text: input.text,
+    mediaType: 'text',
+    replyToId: input.replyToId,
+  });
+  // Publish the reply container
+  const url = addToken(new URL(`${THREADS_GRAPH}/${input.accountId}/threads_publish`), input.token);
+  const data = await metaFetch(url, { method: 'POST', body: new URLSearchParams({ creation_id: containerId }) }) as Record<string, unknown>;
+  return { containerId, postId: data.id as string };
+}
+
 export async function getPermalink(platform: 'instagram' | 'threads', token: string, postId: string): Promise<string | null> {
   const base = platform === 'threads' ? THREADS_GRAPH : FACEBOOK_GRAPH;
   const url = addToken(new URL(`${base}/${postId}`), token);
