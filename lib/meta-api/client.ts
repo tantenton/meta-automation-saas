@@ -116,6 +116,8 @@ export async function replyToThreadsPost(input: {
     mediaType: 'text',
     replyToId: input.replyToId,
   });
+  // Wait for container to be ready
+  await new Promise(resolve => setTimeout(resolve, 2000));
   // Publish the reply container
   const url = addToken(new URL(`${THREADS_GRAPH}/${input.accountId}/threads_publish`), input.token);
   const data = await metaFetch(url, { method: 'POST', body: new URLSearchParams({ creation_id: containerId }) }) as Record<string, unknown>;
