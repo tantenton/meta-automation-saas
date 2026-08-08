@@ -41,8 +41,8 @@ export async function POST(request: NextRequest) {
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   for (const account of accounts) {
-    const expiresAt = account.token_expires_at ? new Date(account.token_expires_at) : null;
-    const needsRefresh = !expiresAt || expiresAt <= sevenDaysFromNow;
+    const expiresAt = account.token_expires_at ? new Date(account.token_expires_at) : new Date(now.getTime() + 1000); // treat null as expired
+    const needsRefresh = !account.token_expires_at || expiresAt <= sevenDaysFromNow;
 
     if (!needsRefresh) {
       results.push({ id: account.id, platform: account.platform, username: account.account_name, status: 'ok', expires_at: expiresAt?.toISOString() });
