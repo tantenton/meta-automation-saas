@@ -70,11 +70,13 @@ export async function publishInstagramContainer(token: string, accountId: string
 
 export async function createThreadsContainer(input: {
   token: string; accountId: string; text: string; mediaUrl?: string | null; mediaType: 'text' | 'image' | 'video';
+  replyToId?: string; // if set, creates a reply to the given post/container ID
 }): Promise<string> {
   const url = addToken(new URL(`${THREADS_GRAPH}/${input.accountId}/threads`), input.token);
   const body = new URLSearchParams({ text: input.text, media_type: input.mediaType.toUpperCase() });
   if (input.mediaType === 'image' && input.mediaUrl) body.set('image_url', input.mediaUrl);
   if (input.mediaType === 'video' && input.mediaUrl) body.set('video_url', input.mediaUrl);
+  if (input.replyToId) body.set('reply_to_id', input.replyToId);
   const data = await metaFetch(url, { method: 'POST', body }) as Record<string, unknown>;
   return data.id as string;
 }
