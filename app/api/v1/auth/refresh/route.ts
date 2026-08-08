@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const newExpiresAt = new Date(now.getTime() + refreshed.expires_in * 1000).toISOString();
+      const newExpiresAt = new Date(now.getTime() + (refreshed.expires_in || 5184000) * 1000).toISOString();
       const encryptedToken = encryptToken(refreshed.access_token);
 
       await db.from('accounts').update({
