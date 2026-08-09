@@ -1,5 +1,6 @@
 const VERSION = process.env.META_GRAPH_VERSION || 'v23.0';
 const FACEBOOK_GRAPH = `https://graph.facebook.com/${VERSION}`;
+const INSTAGRAM_GRAPH = `https://graph.instagram.com/${VERSION}`;
 // Threads API uses v1.0 regardless of META_GRAPH_VERSION
 const THREADS_GRAPH = 'https://graph.threads.net/v1.0';
 
@@ -44,7 +45,7 @@ export async function validateMetaToken(platform: 'instagram' | 'threads', token
 export async function createInstagramContainer(input: {
   token: string; accountId: string; caption: string; mediaUrl: string; mediaType: 'image' | 'video';
 }): Promise<string> {
-  const url = addToken(new URL(`${FACEBOOK_GRAPH}/${input.accountId}/media`), input.token);
+  const url = addToken(new URL(`${INSTAGRAM_GRAPH}/${input.accountId}/media`), input.token);
   const body = new URLSearchParams({ caption: input.caption });
   if (input.mediaType === 'video') {
     body.set('media_type', 'REELS');
@@ -57,13 +58,13 @@ export async function createInstagramContainer(input: {
 }
 
 export async function getInstagramContainerStatus(token: string, containerId: string): Promise<Record<string, unknown>> {
-  const url = addToken(new URL(`${FACEBOOK_GRAPH}/${containerId}`), token);
+  const url = addToken(new URL(`${INSTAGRAM_GRAPH}/${containerId}`), token);
   url.searchParams.set('fields', 'status_code,status');
   return metaFetch(url) as Promise<Record<string, unknown>>;
 }
 
 export async function publishInstagramContainer(token: string, accountId: string, containerId: string): Promise<string> {
-  const url = addToken(new URL(`${FACEBOOK_GRAPH}/${accountId}/media_publish`), token);
+  const url = addToken(new URL(`${INSTAGRAM_GRAPH}/${accountId}/media_publish`), token);
   const data = await metaFetch(url, { method: 'POST', body: new URLSearchParams({ creation_id: containerId }) }) as Record<string, unknown>;
   return data.id as string;
 }
