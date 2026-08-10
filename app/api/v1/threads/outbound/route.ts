@@ -84,23 +84,14 @@ export async function POST(request: NextRequest) {
 
       try {
         // Resolve username to numeric ID if not cached
-        let targetUserId = target.target_user_id as string | null;
+        // NOTE: Threads API does not allow resolving OTHER users' numeric IDs via user token.
+        // target_user_id must be set manually in outbound_targets table.
+        const targetUserId = target.target_user_id as string | null;
         if (!targetUserId) {
-          const resolveUrl = new URL(`https://graph.threads.net/v1.0/${target.target_username}`);
-          resolveUrl.searchParams.set('fields', 'id,username');
-          resolveUrl.searchParams.set('access_token', token);
-          const resolveRes = await fetch(resolveUrl.toString());
-          if (resolveRes.ok) {
-            const resolveData = await resolveRes.json() as { id?: string };
-            if (resolveData.id) {
-              targetUserId = resolveData.id;
-              await db.from('outbound_targets').update({ target_user_id: targetUserId }).eq('id', target.id);
-            }
-          }
-          if (!targetUserId) {
-            await db.from('outbound_targets').update({ last_scanned_at: new Date().toISOString() }).eq('id', target.id);
-            continue;
-          }
+          // Skip targets without a cached user ID — must be set manually
+          await db.from('outbound_targets').update({ last_scanned_at: new Date().toISOString() }).eq('id', target.id);
+          results.push({ target_username: target.target_username, status: 'skipped_no_user_id', message: 'target_user_id not set — set it manually via PATCH /api/v1/threads/targets' });
+          continue;
         }
 
         // Fetch target's recent posts via Threads API using numeric ID
