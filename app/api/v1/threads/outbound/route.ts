@@ -79,6 +79,8 @@ export async function POST(request: NextRequest) {
     const results: Record<string, unknown>[] = [];
     let commented = 0;
 
+    const debugLog: Record<string, unknown>[] = [];
+
     for (const target of targets) {
       if (commented >= maxPerRun) break;
 
@@ -90,13 +92,15 @@ export async function POST(request: NextRequest) {
           resolveUrl.searchParams.set('fields', 'id,username');
           resolveUrl.searchParams.set('access_token', token);
           const resolveRes = await fetch(resolveUrl.toString());
+          const resolveBody = await resolveRes.text();
           if (resolveRes.ok) {
-            const resolveData = await resolveRes.json() as { id?: string };
+            const resolveData = JSON.parse(resolveBody) as { id?: string };
             if (resolveData.id) {
               targetUserId = resolveData.id;
               await db.from('outbound_targets').update({ target_user_id: targetUserId }).eq('id', target.id);
             }
           }
+          debugLog.push({ username: target.target_username, resolve_status: resolveRes.status, resolve_body: resolveBody.slice(0, 200), resolved_id: targetUserId });
           if (!targetUserId) {
             await db.from('outbound_targets').update({ last_scanned_at: new Date().toISOString() }).eq('id', target.id);
             continue;
@@ -109,11 +113,13 @@ export async function POST(request: NextRequest) {
         postsUrl.searchParams.set('limit', '5');
         postsUrl.searchParams.set('access_token', token);
         const postsRes = await fetch(postsUrl.toString());
+        const postsBody = await postsRes.text();
+        debugLog.push({ username: target.target_username, posts_status: postsRes.status, posts_body: postsBody.slice(0, 200) });
         if (!postsRes.ok) {
           await db.from('outbound_targets').update({ last_scanned_at: new Date().toISOString() }).eq('id', target.id);
           continue;
         }
-        const postsData = await postsRes.json() as { data?: Record<string, unknown>[] };
+        const postsData = JSON.parse(postsBody) as { data?: Record<string, unknown>[] };
         const posts = postsData.data || [];
 
         for (const post of posts) {
@@ -191,7 +197,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ processed: results.length, auto_post: autoPost, results });
+    return NextResponse.json({ processed: results.length, auto_post: autoPost, results, debug_targets: targets?.length || 0, debug_log: debugLog });
   } catch (err) {
     return NextResponse.json({
       error: 'outbound_failed',
