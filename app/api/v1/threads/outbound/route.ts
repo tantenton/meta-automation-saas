@@ -83,14 +83,33 @@ export async function POST(request: NextRequest) {
       if (commented >= maxPerRun) break;
 
       try {
-        // Fetch target's recent posts via Threads API
-        const postsUrl = new URL(`https://graph.threads.net/v1.0/${target.target_username}/threads`);
+        // Resolve username to numeric ID if not cached
+        let targetUserId = target.target_user_id as string | null;
+        if (!targetUserId) {
+          const resolveUrl = new URL(`https://graph.threads.net/v1.0/${target.target_username}`);
+          resolveUrl.searchParams.set('fields', 'id,username');
+          resolveUrl.searchParams.set('access_token', token);
+          const resolveRes = await fetch(resolveUrl.toString());
+          if (resolveRes.ok) {
+            const resolveData = await resolveRes.json() as { id?: string };
+            if (resolveData.id) {
+              targetUserId = resolveData.id;
+              await db.from('outbound_targets').update({ target_user_id: targetUserId }).eq('id', target.id);
+            }
+          }
+          if (!targetUserId) {
+            await db.from('outbound_targets').update({ last_scanned_at: new Date().toISOString() }).eq('id', target.id);
+            continue;
+          }
+        }
+
+        // Fetch target's recent posts via Threads API using numeric ID
+        const postsUrl = new URL(`https://graph.threads.net/v1.0/${targetUserId}/threads`);
         postsUrl.searchParams.set('fields', 'id,text,timestamp,permalink');
         postsUrl.searchParams.set('limit', '5');
         postsUrl.searchParams.set('access_token', token);
         const postsRes = await fetch(postsUrl.toString());
         if (!postsRes.ok) {
-          // Try resolve by username first
           await db.from('outbound_targets').update({ last_scanned_at: new Date().toISOString() }).eq('id', target.id);
           continue;
         }
