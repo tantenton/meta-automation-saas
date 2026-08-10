@@ -43,6 +43,28 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH — update target_user_id
+export async function PATCH(request: NextRequest) {
+  const denied = authorizeMachine(request); if (denied) return denied;
+  const db = getSupabaseAdmin();
+  const { data: account } = await db.from('accounts').select('id').eq('platform', 'threads').eq('is_active', true).order('updated_at', { ascending: false }).limit(1).single();
+  if (!account) return NextResponse.json({ error: 'no_active_threads_account' }, { status: 404 });
+
+  try {
+    const body = await request.json() as { username: string; target_user_id: string };
+    if (!body.username || !body.target_user_id) return NextResponse.json({ error: 'username and target_user_id required' }, { status: 400 });
+    const { data, error } = await db.from('outbound_targets')
+      .update({ target_user_id: body.target_user_id })
+      .eq('account_id', account.id)
+      .eq('target_username', body.username.replace('@', ''))
+      .select().single();
+    if (error) throw error;
+    return NextResponse.json({ status: 'updated', target: data });
+  } catch (err) {
+    return NextResponse.json({ error: 'update_failed', message: err instanceof Error ? err.message : String(err) }, { status: 500 });
+  }
+}
+
 // DELETE — remove target
 export async function DELETE(request: NextRequest) {
   const denied = authorizeMachine(request); if (denied) return denied;
