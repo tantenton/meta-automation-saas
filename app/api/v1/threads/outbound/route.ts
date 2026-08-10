@@ -96,8 +96,11 @@ export async function POST(request: NextRequest) {
 
         // Fetch target's recent posts via Jina Reader (public web scrape — no API token needed)
         const jinaUrl = `https://r.jina.ai/https://www.threads.com/@${target.target_username}`;
-        const jinaRes = await fetch(jinaUrl, { headers: { 'Accept': 'application/json' } });
-        if (!jinaRes.ok) {
+        const jinaAbort = new AbortController();
+        const jinaTimeout = setTimeout(() => jinaAbort.abort(), 8000);
+        const jinaRes = await fetch(jinaUrl, { headers: { 'Accept': 'text/markdown' }, signal: jinaAbort.signal }).catch(() => null);
+        clearTimeout(jinaTimeout);
+        if (!jinaRes || !jinaRes.ok) {
           await db.from('outbound_targets').update({ last_scanned_at: new Date().toISOString() }).eq('id', target.id);
           results.push({ target_username: target.target_username, status: 'fetch_failed' });
           continue;
