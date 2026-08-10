@@ -63,7 +63,7 @@ export async function processPost(postId: string) {
       }
       containerId = account.platform === 'instagram'
         ? await createInstagramContainer({ token, accountId: account.account_id, caption: post.content, mediaUrl, mediaType: mediaType === 'video' ? 'video' : 'image' })
-        : await createThreadsContainer({ token, accountId: account.account_id, text: post.content, mediaUrl, mediaType });
+        : await createThreadsContainer({ token, accountId: account.account_id, text: post.content, mediaUrl, mediaType, replyToId: post.reply_to_id as string | undefined });
       await db.from('posts').update({ meta_media_id: containerId }).eq('id', post.id);
     }
 

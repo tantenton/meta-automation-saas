@@ -94,18 +94,30 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Fetch target's recent posts via Threads API using numeric ID
-        const postsUrl = new URL(`https://graph.threads.net/v1.0/${targetUserId}/threads`);
-        postsUrl.searchParams.set('fields', 'id,text,timestamp,permalink');
-        postsUrl.searchParams.set('limit', '5');
-        postsUrl.searchParams.set('access_token', token);
-        const postsRes = await fetch(postsUrl.toString());
-        if (!postsRes.ok) {
+        // Fetch target's recent posts via Jina Reader (public web scrape — no API token needed)
+        const jinaUrl = `https://r.jina.ai/https://www.threads.com/@${target.target_username}`;
+        const jinaRes = await fetch(jinaUrl, { headers: { 'Accept': 'application/json' } });
+        if (!jinaRes.ok) {
           await db.from('outbound_targets').update({ last_scanned_at: new Date().toISOString() }).eq('id', target.id);
+          results.push({ target_username: target.target_username, status: 'fetch_failed' });
           continue;
         }
-        const postsData = await postsRes.json() as { data?: Record<string, unknown>[] };
-        const posts = postsData.data || [];
+        const jinaText = await jinaRes.text();
+        // Extract post texts and permalinks from Jina markdown output
+        const postMatches = [...jinaText.matchAll(/https:\/\/www\.threads\.com\/@[^/]+\/post\/([A-Za-z0-9_-]+)[^)]*\)\n+([^\n![\-]{10,500})/g)];
+        const posts: Record<string, unknown>[] = postMatches.slice(0, 5).map(m => ({
+          id: m[1],
+          text: m[2].trim(),
+          permalink: `https://www.threads.com/@${target.target_username}/post/${m[1]}`,
+        }));
+        // Fallback: extract plain text blocks between -- separators
+        if (!posts.length) {
+          const blocks = jinaText.split(/\n--\n/).slice(1, 6);
+          blocks.forEach((block, i) => {
+            const text = block.replace(/!\[.*?\]\(.*?\)/g, '').replace(/\[.*?\]\(.*?\)/g, '').trim();
+            if (text.length > 10) posts.push({ id: `jina-${target.target_username}-${i}`, text, permalink: null });
+          });
+        }
 
         for (const post of posts) {
           if (commented >= maxPerRun) break;

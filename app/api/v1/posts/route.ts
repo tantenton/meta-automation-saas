@@ -14,6 +14,7 @@ const schema = z.object({
   scheduled_at: z.string().datetime().optional(),
   publish_now: z.boolean().default(false),
   idempotency_key: z.string().min(8).max(200),
+  reply_to_id: z.string().optional(), // Threads meta_post_id to reply to
 });
 
 export async function GET(request: NextRequest) {
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
       status,
       idempotency_key: input.idempotency_key,
       content_hash: contentHash,
+      ...(input.reply_to_id ? { reply_to_id: input.reply_to_id } : {}),
     }).select('*').single();
     if (error) throw error;
     return NextResponse.json({ post: data }, { status: 201 });
