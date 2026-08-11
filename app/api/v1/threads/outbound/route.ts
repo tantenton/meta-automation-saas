@@ -20,6 +20,39 @@ Panjang komentar: 10-80 karakter ideal. Max 150 karakter.
 
 Return ONLY the comment text. If irrelevant or sensitive, return exactly: SKIP`;
 
+function shortcodeToNumericId(shortcode: string): string {
+  // Decode Threads shortcode (base64url-encoded big-endian integer)
+  // Uses string-based multiplication to avoid BigInt (ES2020+) requirement
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  // Represent number as array of decimal digits (little-endian)
+  const digits = [0];
+  function multiplyBy(factor: number) {
+    let carry = 0;
+    for (let i = 0; i < digits.length; i++) {
+      const val = digits[i] * factor + carry;
+      digits[i] = val % 10;
+      carry = Math.floor(val / 10);
+    }
+    while (carry > 0) { digits.push(carry % 10); carry = Math.floor(carry / 10); }
+  }
+  function addTo(val: number) {
+    let carry = val;
+    for (let i = 0; i < digits.length && carry > 0; i++) {
+      const sum = digits[i] + carry;
+      digits[i] = sum % 10;
+      carry = Math.floor(sum / 10);
+    }
+    while (carry > 0) { digits.push(carry % 10); carry = Math.floor(carry / 10); }
+  }
+  for (const char of shortcode) {
+    const idx = alphabet.indexOf(char);
+    if (idx === -1) throw new Error(`Invalid shortcode char: ${char}`);
+    multiplyBy(64);
+    addTo(idx);
+  }
+  return digits.reverse().join('');
+}
+
 async function draftComment(postText: string, targetUsername: string): Promise<string | null> {
   const baseUrl = process.env.AI_BASE_URL;
   const apiKey = process.env.AI_API_KEY || 'dummy';
@@ -59,6 +92,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     const autoPost = body.auto_post === true; // default: draft only
     const maxPerRun = Math.min(Number(body.max_per_run) || 5, 10);
+    const forceRetry = body.force_retry === true; // bypass deduplication for failed/pending
 
     // Get active Threads account
     const { data: account } = await db.from('accounts')
@@ -94,32 +128,53 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Fetch target's recent posts via Jina Reader (public web scrape — no API token needed)
-        const jinaUrl = `https://r.jina.ai/https://www.threads.com/@${target.target_username}`;
-        const jinaAbort = new AbortController();
-        const jinaTimeout = setTimeout(() => jinaAbort.abort(), 8000);
-        const jinaRes = await fetch(jinaUrl, { headers: { 'Accept': 'text/markdown' }, signal: jinaAbort.signal }).catch(() => null);
-        clearTimeout(jinaTimeout);
-        if (!jinaRes || !jinaRes.ok) {
-          await db.from('outbound_targets').update({ last_scanned_at: new Date().toISOString() }).eq('id', target.id);
-          results.push({ target_username: target.target_username, status: 'fetch_failed' });
-          continue;
+        // Fetch target's recent posts via Threads API using target_user_id (gets real numeric post IDs)
+        const threadsApiUrl = new URL(`https://graph.threads.net/v1.0/${targetUserId}/threads`);
+        threadsApiUrl.searchParams.set('fields', 'id,text,permalink,timestamp');
+        threadsApiUrl.searchParams.set('limit', '10');
+        threadsApiUrl.searchParams.set('access_token', token);
+        const apiAbort = new AbortController();
+        const apiTimeout = setTimeout(() => apiAbort.abort(), 10000);
+        const apiRes = await fetch(threadsApiUrl.toString(), { signal: apiAbort.signal }).catch(() => null);
+        clearTimeout(apiTimeout);
+
+        let posts: Record<string, unknown>[] = [];
+
+        if (apiRes && apiRes.ok) {
+          const apiData = await apiRes.json() as { data?: { id: string; text?: string; permalink?: string }[] };
+          posts = (apiData.data || []).slice(0, 5).map(p => ({
+            id: p.id,
+            text: (p.text || '').trim(),
+            permalink: p.permalink || `https://www.threads.com/@${target.target_username}/post/${p.id}`,
+          }));
         }
-        const jinaText = await jinaRes.text();
-        // Extract post texts and permalinks from Jina markdown output
-        const postMatches = [...jinaText.matchAll(/https:\/\/www\.threads\.com\/@[^/]+\/post\/([A-Za-z0-9_-]+)[^)]*\)\n+([^\n![\-]{10,500})/g)];
-        const posts: Record<string, unknown>[] = postMatches.slice(0, 5).map(m => ({
-          id: m[1],
-          text: m[2].trim(),
-          permalink: `https://www.threads.com/@${target.target_username}/post/${m[1]}`,
-        }));
-        // Fallback: extract plain text blocks between -- separators
+
+        // Fallback to Jina if API returns empty (private or unsupported)
         if (!posts.length) {
-          const blocks = jinaText.split(/\n--\n/).slice(1, 6);
-          blocks.forEach((block, i) => {
-            const text = block.replace(/!\[.*?\]\(.*?\)/g, '').replace(/\[.*?\]\(.*?\)/g, '').trim();
-            if (text.length > 10) posts.push({ id: `jina-${target.target_username}-${i}`, text, permalink: null });
-          });
+          const jinaUrl = `https://r.jina.ai/https://www.threads.com/@${target.target_username}`;
+          const jinaAbort = new AbortController();
+          const jinaTimeout = setTimeout(() => jinaAbort.abort(), 8000);
+          const jinaRes = await fetch(jinaUrl, { headers: { 'Accept': 'text/markdown' }, signal: jinaAbort.signal }).catch(() => null);
+          clearTimeout(jinaTimeout);
+          if (!jinaRes || !jinaRes.ok) {
+            await db.from('outbound_targets').update({ last_scanned_at: new Date().toISOString() }).eq('id', target.id);
+            results.push({ target_username: target.target_username, status: 'fetch_failed' });
+            continue;
+          }
+          const jinaText = await jinaRes.text();
+          const postMatches = [...jinaText.matchAll(/https:\/\/www\.threads\.com\/@[^/]+\/post\/([A-Za-z0-9_-]+)[^)]*\)\n+([^\n![\-]{10,500})/g)];
+          posts = postMatches.slice(0, 5).map(m => ({
+            id: m[1],
+            text: m[2].trim(),
+            permalink: `https://www.threads.com/@${target.target_username}/post/${m[1]}`,
+          }));
+          if (!posts.length) {
+            const blocks = jinaText.split(/\n--\n/).slice(1, 6);
+            blocks.forEach((block, i) => {
+              const text = block.replace(/!\[.*?\]\(.*?\)/g, '').replace(/\[.*?\]\(.*?\)/g, '').trim();
+              if (text.length > 10) posts.push({ id: `jina-${target.target_username}-${i}`, text, permalink: null });
+            });
+          }
         }
 
         for (const post of posts) {
@@ -130,10 +185,11 @@ export async function POST(request: NextRequest) {
 
           if (!postText || postText.length < 10) continue;
 
-          // Check if already processed
+          // Check if already processed (skip if posted, retry if post_failed or force_retry)
           const { data: existing } = await db.from('outbound_comments')
             .select('id, comment_status').eq('account_id', account.id).eq('target_post_id', postId).maybeSingle();
-          if (existing) continue;
+          if (existing && existing.comment_status === 'posted') continue;
+          if (existing && !forceRetry && existing.comment_status !== 'post_failed') continue;
 
           // Draft comment
           const draft = await draftComment(postText, target.target_username);
@@ -149,7 +205,15 @@ export async function POST(request: NextRequest) {
             idempotency_key: `outbound-${account.id}-${postId}`,
           };
 
-          await db.from('outbound_comments').insert(record);
+          if (existing) {
+            // Update existing post_failed record with fresh draft
+            await db.from('outbound_comments').update({
+              comment_drafted: draft,
+              comment_status: draft ? 'pending' : 'skipped',
+            }).eq('account_id', account.id).eq('target_post_id', postId);
+          } else {
+            await db.from('outbound_comments').insert(record);
+          }
 
           const result: Record<string, unknown> = {
             target_username: target.target_username,
@@ -163,11 +227,16 @@ export async function POST(request: NextRequest) {
           // Auto-post if enabled
           if (autoPost && draft) {
             try {
+              // Resolve shortcode to numeric Media ID if needed (Threads API requires numeric ID)
+              let replyToId = postId;
+              if (!/^\d+$/.test(postId)) {
+                try { replyToId = shortcodeToNumericId(postId); } catch { replyToId = postId; }
+              }
               const { postId: commentPostId } = await replyToThreadsPost({
                 token,
                 accountId: account.account_id,
                 text: draft,
-                replyToId: postId,
+                replyToId,
               });
               const commentPermalink = await getPermalink('threads', token, commentPostId).catch(() => null);
               await db.from('outbound_comments').update({

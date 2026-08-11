@@ -1,1 +1,7 @@
-{}
+{
+  "functions": {
+    "app/api/v1/threads/outbound/route.ts": {
+      "maxDuration": 300
+    }
+  }
+}
