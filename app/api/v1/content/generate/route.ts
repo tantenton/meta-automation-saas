@@ -149,7 +149,7 @@ Return JSON array dengan struktur:
           'Authorization': `Bearer ${aiApiKey}`,
         },
         body: JSON.stringify({
-          model: 'mk/qwen3-coder-next',
+          model: 'qwen3.7-flash',
           max_tokens: 3000,
           stream: false,
           messages: [
@@ -219,7 +219,7 @@ Return JSON array with all fields.`;
           'Authorization': `Bearer ${aiApiKey}`,
         },
         body: JSON.stringify({
-          model: 'mk/qwen3-coder-next',
+          model: 'qwen3.7-flash',
           max_tokens: 2000,
           stream: false,
           messages: [
