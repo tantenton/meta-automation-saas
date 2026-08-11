@@ -132,8 +132,8 @@ Return JSON array dengan struktur:
 `;
 
     // Call AI to generate 5 variants
-    const aiUrl = 'https://ws-fwyp076y0bhcpj55.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions';
-    const aiApiKey = process.env.ALIYUN_MAAS_API_KEY || process.env.AI_API_KEY;
+    const aiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+    const aiApiKey = process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY;
 
     if (!aiApiKey) {
       return NextResponse.json({ error: 'AI_API_KEY not configured' }, { status: 503 });
@@ -149,7 +149,7 @@ Return JSON array dengan struktur:
           'Authorization': `Bearer ${aiApiKey}`,
         },
         body: JSON.stringify({
-          model: 'qwen3.8-max',
+          model: 'google/gemma-4-31b-it:free',
           max_tokens: 3000,
           stream: false,
           messages: [
@@ -219,7 +219,7 @@ Return JSON array with all fields.`;
           'Authorization': `Bearer ${aiApiKey}`,
         },
         body: JSON.stringify({
-          model: 'qwen3.8-max',
+          model: 'google/gemma-4-31b-it:free',
           max_tokens: 2000,
           stream: false,
           messages: [
