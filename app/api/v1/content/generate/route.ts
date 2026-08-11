@@ -133,7 +133,7 @@ Return JSON array dengan struktur:
 
     // Call AI to generate 5 variants
     const aiUrl = 'https://api.birrulabs.biz.id/v1/chat/completions';
-    const aiApiKey = process.env.HERMES_API_KEY || process.env.AI_API_KEY;
+    const aiApiKey = process.env.AI_API_KEY || process.env.HERMES_API_KEY;
 
     if (!aiApiKey) {
       return NextResponse.json({ error: 'AI_API_KEY not configured' }, { status: 503 });

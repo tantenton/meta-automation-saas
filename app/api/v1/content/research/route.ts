@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     // Call AI to extract content patterns from HN stories
     const aiUrl = 'https://api.birrulabs.biz.id/v1/chat/completions';
-    const aiApiKey = process.env.HERMES_API_KEY || process.env.AI_API_KEY;
+    const aiApiKey = process.env.AI_API_KEY || process.env.HERMES_API_KEY;
 
     if (!aiApiKey) {
       return NextResponse.json({ error: 'AI_API_KEY not configured' }, { status: 503 });
