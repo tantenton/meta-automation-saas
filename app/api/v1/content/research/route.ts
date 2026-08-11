@@ -98,7 +98,7 @@ Return a JSON array of patterns. Do not include any other text.`;
           'Authorization': `Bearer ${aiApiKey}`,
         },
         body: JSON.stringify({
-          model: 'qwen3.7-flash',
+          model: 'qwen3.8-max',
           max_tokens: 2000,
           stream: false,
           messages: [
