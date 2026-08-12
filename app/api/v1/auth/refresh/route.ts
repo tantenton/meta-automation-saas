@@ -5,6 +5,7 @@ import { decryptToken, encryptToken } from '@/lib/server/token-crypto';
 
 const THREADS_GRAPH = 'https://graph.threads.net';
 const FACEBOOK_GRAPH = 'https://graph.facebook.com/v23.0';
+const INSTAGRAM_GRAPH = 'https://graph.instagram.com';
 
 async function refreshThreadsToken(token: string): Promise<{ access_token: string; expires_in: number } | null> {
   try {
@@ -24,6 +25,14 @@ async function refreshFacebookToken(token: string): Promise<{ access_token: stri
   } catch { return null; }
 }
 
+async function refreshInstagramToken(token: string): Promise<{ access_token: string; expires_in: number } | null> {
+  try {
+    const res = await fetch(`${INSTAGRAM_GRAPH}/refresh_access_token?grant_type=ig_refresh_token&access_token=${token}`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch { return null; }
+}
+
 export async function POST(request: NextRequest) {
   const denied = authorizeMachine(request); if (denied) return denied;
   const db = getSupabaseAdmin();
@@ -32,7 +41,7 @@ export async function POST(request: NextRequest) {
   const { data: accounts } = await db.from('accounts')
     .select('*')
     .eq('is_active', true)
-    .in('platform', ['threads', 'facebook']);
+    .in('platform', ['threads', 'facebook', 'instagram']);
 
   if (!accounts?.length) return NextResponse.json({ message: 'no_accounts', refreshed: 0 });
 
@@ -57,6 +66,8 @@ export async function POST(request: NextRequest) {
         refreshed = await refreshThreadsToken(token);
       } else if (account.platform === 'facebook') {
         refreshed = await refreshFacebookToken(token);
+      } else if (account.platform === 'instagram') {
+        refreshed = await refreshInstagramToken(token);
       }
 
       if (!refreshed) {

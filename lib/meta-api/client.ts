@@ -43,8 +43,11 @@ export async function validateMetaToken(platform: 'instagram' | 'threads', token
 }
 
 export async function createInstagramContainer(input: {
-  token: string; accountId: string; caption: string; mediaUrl: string; mediaType: 'image' | 'video';
+  token: string; accountId: string; caption: string; mediaUrl?: string | null; mediaType: 'image' | 'video';
 }): Promise<string> {
+  if (!input.mediaUrl) {
+    throw new Error('Instagram requires media_url for image/video posts');
+  }
   const url = addToken(new URL(`${INSTAGRAM_GRAPH}/${input.accountId}/media`), input.token);
   const body = new URLSearchParams({ caption: input.caption });
   if (input.mediaType === 'video') {
@@ -142,7 +145,7 @@ export async function publishFacebookPost(input: {
 }
 
 export async function getPermalink(platform: 'instagram' | 'threads' | 'facebook', token: string, postId: string): Promise<string | null> {
-  const base = platform === 'threads' ? THREADS_GRAPH : FACEBOOK_GRAPH;
+  const base = platform === 'threads' ? THREADS_GRAPH : platform === 'instagram' ? INSTAGRAM_GRAPH : FACEBOOK_GRAPH;
   const url = addToken(new URL(`${base}/${postId}`), token);
   url.searchParams.set('fields', 'id,permalink');
   const data = await metaFetch(url) as Record<string, unknown>;
