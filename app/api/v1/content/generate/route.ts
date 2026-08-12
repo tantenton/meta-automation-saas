@@ -94,7 +94,7 @@ Cara kamu menulis post untuk Threads/Facebook:
 
 Tone: ramah, relatable, casual, sedikit humor.`;
 
-    const patternsInfo = topPatterns?.map(p => ({
+    const patternsInfo = topPatterns?.map((p: ContentPattern) => ({
       name: p.pattern_name,
       desc: p.description,
       hook: p.hook_type,
@@ -104,7 +104,7 @@ Tone: ramah, relatable, casual, sedikit humor.`;
 
     const topicsHint = topic ? `Topik saat ini: "${topic}".\n\n` : '';
     const recentPostsHint = recentPosts?.length
-      ? `JANGAN ulang konten ini (untuk novelty):\n${recentPosts.map((p, i) => `${i + 1}. ${p.content.substring(0, 100)}...`).join('\n')}`
+      ? `JANGAN ulang konten ini (untuk novelty):\n${recentPosts.map((p: RecentPost, i: number) => `${i + 1}. ${p.content.substring(0, 100)}...`).join('\n')}`
       : '';
 
     const prompt = `${topicsHint}Buat 5 variasi post untuk platform ${platform.toUpperCase()} dengan persona Birru.
@@ -115,7 +115,7 @@ Format setiap post:
 3. Pattern yang digunakan
 
 Pattern yang tersedia (dengan effectiveness score):
-${patternsInfo.map((p, i) => `${i + 1}. ${p.name} (${p.score.toFixed(1)}): ${p.desc}\n   Hook type: ${p.hook}\n   Contoh: ${p.examples.join(', ')}`).join('\n\n')}
+${patternsInfo.map((p: { name: string; score: number; desc: string; hook: string; examples: string[] }, i: number) => `${i + 1}. ${p.name} (${p.score.toFixed(1)}): ${p.desc}\n   Hook type: ${p.hook}\n   Contoh: ${p.examples.join(', ')}`).join('\n\n')}
 
 ${recentPostsHint}
 
@@ -182,7 +182,7 @@ Return JSON array dengan struktur:
     // Calculate novelty scores
     const variantsWithNovelty = generatedVariants.map(v => {
       const maxOverlap = recentPosts?.length
-        ? Math.max(...recentPosts.map(p => jaccardSimilarity(v.content, p.content || '')))
+        ? Math.max(...recentPosts.map((p: RecentPost) => jaccardSimilarity(v.content, p.content || '')))
         : 0;
       const noveltyScore = Math.max(0, Math.min(10, (1 - maxOverlap) * 10));
       return { ...v, novelty_score: noveltyScore };

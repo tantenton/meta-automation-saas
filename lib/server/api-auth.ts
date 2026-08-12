@@ -15,3 +15,6 @@ export function authorizeWorker(request: NextRequest): NextResponse | null {
   if (!supplied || !safeEqual(supplied, secret)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   return null;
 }
+
+// Alias — same auth logic, named for machine-to-machine callers
+export const authorizeMachine = authorizeWorker;

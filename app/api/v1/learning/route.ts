@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       .select('likes')
       .eq('account_id', accountId)
       .not('likes', 'is', null);
-    const maxLikesSeen = posts?.reduce((max, p) => Math.max(max, p.likes || 0), 0) || 1;
+    const maxLikesSeen = posts?.reduce((max: number, p: { likes: number | null }) => Math.max(max, p.likes || 0), 0) || 1;
 
     const patternsUpdated: string[] = [];
     const patternData: Record<string, { likes: number; replies: number; reposts: number; views: number; count: number; lastUsed: string }> = {};
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
       .eq('account_id', accountId)
       .order('effectiveness_score', { ascending: false });
 
-    const rankedPatterns = (allPatterns || []).map(p => ({
+    const rankedPatterns = (allPatterns || []).map((p: { pattern_name: string; effectiveness_score: number | null }) => ({
       pattern_name: p.pattern_name,
       effectiveness_score: p.effectiveness_score || 0,
     }));
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
 
     // Prepare new strategy
     const strategyData = {
-      preferred_patterns: rankedPatterns.map(p => p.pattern_name),
+      preferred_patterns: rankedPatterns.map((p: { pattern_name: string }) => p.pattern_name),
       key_learnings: keyLearningsArray,
       iteration: (existingStrategy?.iteration || 0) + 1,
       last_updated: new Date().toISOString(),
