@@ -122,7 +122,7 @@ async function handler(request: NextRequest) {
               has_replies: false,
               reply_drafted: replyText,
               reply_status: 'skipped',
-            }).catch(() => null);
+            });
           }
           continue;
         }
@@ -141,13 +141,13 @@ async function handler(request: NextRequest) {
             reply_status: 'replied',
             reply_post_id: replyPostId,
             reply_permalink: permalink,
-          }).catch(() => null);
+          });
         } else {
           await db.from('post_comments').update({
             reply_status: 'replied',
             reply_post_id: replyPostId,
             reply_permalink: permalink,
-          }).eq('comment_id', commentId).catch(() => null);
+          }).eq('comment_id', commentId);
         }
 
         results.replied_comments++;
