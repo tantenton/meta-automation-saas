@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeWorker } from '@/lib/server/api-auth';
-import { readRepliedComments, writeRepliedComments } from '@/lib/server/replied-comments';
 import { decryptToken } from '@/lib/server/token-crypto';
 import { getSupabaseAdmin } from '@/lib/server/supabase-admin';
+import { replyToThreadsPost, getPermalink } from '@/lib/meta-api/client';
 
 // Persona Birru: casual Bahasa Indonesia, tech-savvy, 25yo guy
 function generateReply(): string {
@@ -23,34 +23,35 @@ function generateReply(): string {
 
 async function handler(request: NextRequest) {
   if (request.method === 'GET') {
-    return NextResponse.json({ 
-      status: 'ok', 
+    return NextResponse.json({
+      status: 'ok',
       message: 'Threads auto-reply service is running',
       timestamp: new Date().toISOString()
     });
   }
 
-  const authHeader = request.headers.get('authorization') || '';
-  console.log('Auth header:', authHeader);
   const denied = authorizeWorker(request);
   if (denied) return denied;
 
   try {
-    // Fetch and decrypt Threads access token from database
     const db = getSupabaseAdmin();
+
+    // Fetch and decrypt Threads access token from database
     const { data: account } = await db.from('accounts')
-      .select('access_token_encrypted')
+      .select('*')
       .eq('platform', 'threads')
       .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
-    
+
     if (!account?.access_token_encrypted) {
       return NextResponse.json({ error: 'no_threads_token', message: 'No active Threads account found' }, { status: 400 });
     }
-    
+
     const accessToken = decryptToken(account.access_token_encrypted);
 
-    // Get latest 5 threads
+    // Get latest 5 threads posts
     const threadsRes = await fetch('https://graph.threads.net/v1.0/me/threads?fields=id,text,timestamp&limit=5', {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
@@ -66,71 +67,93 @@ async function handler(request: NextRequest) {
     const results = {
       found_comments: 0,
       replied_comments: 0,
-      replies: [] as { comment_id: string; text: string }[]
+      replies: [] as { comment_id: string; text: string; permalink?: string | null }[]
     };
 
-    // Check replies for each post
     for (const post of posts) {
-      const postId = post.id;
+      const postId = post.id as string;
 
       const repliesRes = await fetch(`https://graph.threads.net/v1.0/${postId}/replies?fields=id,text,username,timestamp&access_token=${accessToken}`);
-
       if (!repliesRes.ok) continue;
 
       const repliesData = await repliesRes.json();
-      const comments = repliesData.data || [];
+      const comments = (repliesData.data || []) as { id: string; text: string; username: string; timestamp: string }[];
 
-      const repliedComments = await readRepliedComments();
-      const existingReplied = new Set(repliedComments);
       for (const comment of comments) {
-        if (existingReplied.has(comment.id)) continue;
+        const commentId = comment.id;
+
+        // Skip own replies
+        if (comment.username === account.account_name) continue;
+
+        // DB-backed dedup: skip if already replied
+        const { data: existing } = await db.from('post_comments')
+          .select('id, reply_status')
+          .eq('comment_id', commentId)
+          .maybeSingle();
+        if (existing?.reply_status === 'replied') continue;
+
+        results.found_comments++;
 
         const replyText = generateReply();
         if (replyText.length > 150) continue;
 
-        const createRes = await fetch('https://graph.threads.net/v1.0/me/threads', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            media_type: 'TEXT',
+        let replyPostId: string | null = null;
+        let permalink: string | null = null;
+
+        try {
+          const reply = await replyToThreadsPost({
+            token: accessToken,
+            accountId: account.account_id,
             text: replyText,
-            reply_to_id: comment.id
-          })
-        });
+            replyToId: commentId,
+          });
+          replyPostId = reply.postId;
+          permalink = await getPermalink('threads', accessToken, replyPostId).catch(() => null);
+        } catch {
+          // Reply failed — upsert comment as skipped and move on
+          if (!existing) {
+            await db.from('post_comments').insert({
+              account_id: account.id,
+              post_id: postId,
+              comment_id: commentId,
+              username: comment.username,
+              text: comment.text,
+              timestamp: comment.timestamp,
+              has_replies: false,
+              reply_drafted: replyText,
+              reply_status: 'skipped',
+            }).catch(() => null);
+          }
+          continue;
+        }
 
-        if (!createRes.ok) continue;
+        // Upsert dedup record in DB
+        if (!existing) {
+          await db.from('post_comments').insert({
+            account_id: account.id,
+            post_id: postId,
+            comment_id: commentId,
+            username: comment.username,
+            text: comment.text,
+            timestamp: comment.timestamp,
+            has_replies: true,
+            reply_drafted: replyText,
+            reply_status: 'replied',
+            reply_post_id: replyPostId,
+            reply_permalink: permalink,
+          }).catch(() => null);
+        } else {
+          await db.from('post_comments').update({
+            reply_status: 'replied',
+            reply_post_id: replyPostId,
+            reply_permalink: permalink,
+          }).eq('comment_id', commentId).catch(() => null);
+        }
 
-        const createData = await createRes.json();
-        const creationId = createData.id;
-
-        const publishRes = await fetch('https://graph.threads.net/v1.0/me/threads_publish', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ creation_id: creationId })
-        });
-
-        if (!publishRes.ok) continue;
-
-        repliedComments.add(comment.id);
-        await writeRepliedComments(repliedComments);
-
-        results.found_comments++;
         results.replied_comments++;
-        results.replies.push({ comment_id: comment.id, text: replyText });
+        results.replies.push({ comment_id: commentId, text: replyText, permalink });
       }
     }
-
-    const currentReplied = await readRepliedComments();
-    for (const reply of results.replies) {
-      currentReplied.add(reply.comment_id);
-    }
-    await writeRepliedComments(currentReplied);
 
     return NextResponse.json({
       success: true,
