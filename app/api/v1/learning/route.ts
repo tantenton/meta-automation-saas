@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeMachine } from '@/lib/server/api-auth';
 import { getSupabaseAdmin } from '@/lib/server/supabase-admin';
+import { decryptToken } from '@/lib/server/token-crypto';
 
 const THREADS_GRAPH = 'https://graph.threads.net/v1.0';
 
@@ -39,18 +40,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'account_id_required' }, { status: 400 });
     }
 
-    // Get active account to retrieve access token
+    // Get active account — select encrypted token only (never expose plaintext token)
     const { data: account } = await db.from('accounts')
-      .select('id, account_id, access_token, platform')
+      .select('id, account_id, access_token_encrypted, platform')
       .eq('id', accountId)
       .single();
 
-    if (!account?.access_token) {
+    if (!account?.access_token_encrypted) {
       return NextResponse.json({ error: 'account_not_found_or_no_token' }, { status: 404 });
     }
 
-    const token = account.access_token as string;
-    const metaAccountId = account.account_id as string;
+    // Decrypt server-side; plaintext token never stored or returned
+    const token = decryptToken(account.access_token_encrypted);
 
     // Fetch pending metrics rows
     const { data: pendingRows, error: pendingError } = await db.from('pending_metrics')
