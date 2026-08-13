@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run lint && npm run build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:bootstrap": "node --env-file=.env.local scripts/bootstrap-db.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
