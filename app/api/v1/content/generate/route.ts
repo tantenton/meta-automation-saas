@@ -241,6 +241,9 @@ Return JSON array with all fields.`;
 
       rankedVariants = JSON.parse(rankJson) as GeneratedVariant[];
 
+      // Preserve original content if ranking model returns scores only.
+      rankedVariants = rankedVariants.map((ranked, i) => ({ ...variantsWithNovelty[i], ...ranked, content: ranked.content || variantsWithNovelty[i]?.content || "", pattern_used: ranked.pattern_used || variantsWithNovelty[i]?.pattern_used || "", hook_type: ranked.hook_type || variantsWithNovelty[i]?.hook_type || "" }));
+
       // Sort by composite_score descending and assign ranks
       rankedVariants.sort((a, b) => b.composite_score - a.composite_score);
       rankedVariants = rankedVariants.map((v, i) => ({ ...v, rank: i + 1 }));
