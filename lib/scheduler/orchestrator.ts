@@ -1,44 +1,40 @@
 /**
- * orchestrator.ts
- * Autonomous scheduled content loop — pure business logic, no HTTP layer.
+ * orchestrator.ts — Autonomous scheduled content loop, no HTTP layer.
  *
  * Cycle (per account):
- *  1. Research  — POST /api/v1/content/research to refresh content_patterns
- *  2. Generate  — POST /api/v1/content/generate for the account platform
- *  3. QC        — enforce media-first rules via enforceMediaQC
- *  4. Persist   — insert passing drafts as status='draft' (publish_now=false)
- *  5. Metrics   — POST /api/v1/learning to collect pending engagement data
+ *  1. Research  — POST /api/v1/content/research
+ *  2. Generate  — POST /api/v1/content/generate
+ *  3. Media     — POST /api/v1/generate-image for FB/IG when livePublish=true
+ *  4. QC        — enforceMediaQC
+ *  5. Persist   — /api/v1/posts; publish_now=true only when livePublish=true
+ *  6. Metrics   — POST /api/v1/learning
  *
- * dry_run=true  → steps 1–3 run; DB writes and metric calls are skipped.
- * dry_run=false → full cycle; posts saved as draft only (never queued).
- *
- * No live Meta API calls are made here. All platform I/O goes through
- * existing internal endpoints guarded by CRON_SECRET.
+ * dry_run=true   -> steps 1-2 only; no DB writes, no media gen, no metrics.
+ * dry_run=false  -> full cycle; drafts saved (publish_now=false).
+ * livePublish=true -> requires SCHEDULER_LIVE_PUBLISH=true env (checked by
+ *                     route.ts before calling here); FB/IG get real media_url
+ *                     from /api/v1/generate-image; Threads publish_now=true.
  */
 
 import { createHash } from 'node:crypto';
 import { enforceMediaQC, type Platform, type MediaType } from './media-qc';
 
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
-
 export interface AccountConfig {
-  id: string;        // accounts.id (UUID)
+  id: string;
   platform: Platform;
   name?: string;
 }
 
 export interface OrchestratorOptions {
-  /** Base URL of the Next.js app, e.g. https://example.com */
   baseUrl: string;
-  /** Bearer token for internal API calls (CRON_SECRET) */
   secret: string;
-  /** When true, skip all DB writes and metric fetches */
   dryRun: boolean;
-  /** Accounts to process this cycle */
+  /**
+   * Enable live publishing. Only effective when dryRun=false AND the caller
+   * has already verified SCHEDULER_LIVE_PUBLISH=true. Has no effect in dry-run.
+   */
+  livePublish: boolean;
   accounts: AccountConfig[];
-  /** Optional topic hint passed to content/generate */
   topic?: string;
 }
 
@@ -54,25 +50,23 @@ export interface DraftResult {
   qcPassed: boolean;
   qcReason?: string;
   persisted: boolean;
+  published: boolean;
   postId?: string;
 }
 
 export interface OrchestratorResult {
   dryRun: boolean;
+  livePublish: boolean;
   researchOk: boolean;
   drafts: DraftResult[];
   draftsCreated: number;
   draftsRejected: number;
-  /** Always 0 — this scheduler never auto-queues */
+  /** Posts queued for immediate publishing (livePublish=true only) */
   draftsQueued: number;
   metricsProcessed: number;
   errors: string[];
   durationMs: number;
 }
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
 
 function makeHeaders(secret: string): Record<string, string> {
   return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + secret };
@@ -96,18 +90,13 @@ async function postInternal<T>(
   return res.json() as Promise<T>;
 }
 
-/** Stable per-day idempotency key so duplicate cron runs are harmless */
 function makeIdempotencyKey(accountId: string, platform: string, rank: number): string {
-  const day = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const day = new Date().toISOString().slice(0, 10);
   return createHash('sha256')
     .update('scheduler:' + accountId + ':' + platform + ':' + day + ':' + rank)
     .digest('hex')
     .slice(0, 64);
 }
-
-// ---------------------------------------------------------------------------
-// Per-platform defaults
-// ---------------------------------------------------------------------------
 
 interface PlatformConfig {
   defaultMediaType: MediaType;
@@ -120,10 +109,6 @@ const PLATFORM_CONFIG: Record<Platform, PlatformConfig> = {
   threads:   { defaultMediaType: 'text',  requiresMedia: false },
 };
 
-// ---------------------------------------------------------------------------
-// Response shapes from internal endpoints
-// ---------------------------------------------------------------------------
-
 interface GeneratedVariant {
   content: string;
   pattern_used: string;
@@ -134,9 +119,27 @@ interface GeneratedVariant {
   reasoning: string;
 }
 
-// ---------------------------------------------------------------------------
-// Core orchestration cycle
-// ---------------------------------------------------------------------------
+interface GenerateImageResponse {
+  public_url: string;
+  media_id: string;
+}
+
+/** Calls /api/v1/generate-image and returns the uploaded public URL.
+ *  Never fabricates a URL — throws if the response has no public_url. */
+async function acquireMediaUrl(
+  baseUrl: string,
+  secret: string,
+  content: string,
+  platform: Platform,
+): Promise<string> {
+  const prompt =
+    'Social media image for ' + platform + ': ' + content.slice(0, 200).replace(/\n/g, ' ');
+  const res = await postInternal<GenerateImageResponse>(
+    baseUrl, secret, '/api/v1/generate-image', { prompt },
+  );
+  if (!res.public_url) throw new Error('generate-image returned no public_url');
+  return res.public_url;
+}
 
 export async function runOrchestrationCycle(
   opts: OrchestratorOptions,
@@ -146,41 +149,38 @@ export async function runOrchestrationCycle(
   const allDrafts: DraftResult[] = [];
   let researchOk = false;
   let metricsProcessed = 0;
+  let draftsQueued = 0;
+
+  // livePublish is only honoured outside dry-run
+  const effectiveLive = !opts.dryRun && opts.livePublish;
 
   for (const account of opts.accounts) {
-    // -----------------------------------------------------------------------
-    // Step 1: Research — refresh content_patterns from trending signals
-    // -----------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Step 1: Research
+    // -------------------------------------------------------------------------
     try {
       await postInternal(opts.baseUrl, opts.secret, '/api/v1/content/research', {
         account_id: account.id,
       });
       researchOk = true;
     } catch (err) {
-      // Non-fatal: existing patterns are still usable
       errors.push(
         '[research][' + account.id + '] ' +
         (err instanceof Error ? err.message : String(err)),
       );
     }
 
-    // -----------------------------------------------------------------------
-    // Step 2: Generate — get ranked variants for this account's platform
-    // -----------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Step 2: Generate
+    // -------------------------------------------------------------------------
     const platform = account.platform;
     const cfg = PLATFORM_CONFIG[platform];
     let generatedVariants: GeneratedVariant[] = [];
 
     try {
       const genRes = await postInternal<{ variants: GeneratedVariant[] }>(
-        opts.baseUrl,
-        opts.secret,
-        '/api/v1/content/generate',
-        {
-          account_id: account.id,
-          platform,
-          ...(opts.topic ? { topic: opts.topic } : {}),
-        },
+        opts.baseUrl, opts.secret, '/api/v1/content/generate',
+        { account_id: account.id, platform, ...(opts.topic ? { topic: opts.topic } : {}) },
       );
       generatedVariants = genRes.variants ?? [];
     } catch (err) {
@@ -190,17 +190,31 @@ export async function runOrchestrationCycle(
       );
     }
 
-    // Take the top-ranked variant only (safest for automated draft creation)
     const topVariant = generatedVariants.find(v => v.rank === 1) ?? generatedVariants[0];
 
     if (topVariant) {
       const mediaType = cfg.defaultMediaType;
-      // Scheduler never fabricates media URLs — QC will flag FB/IG until a real
-      // URL is attached downstream (e.g. image generation step).
-      const mediaUrl: string | null = null;
+      let mediaUrl: string | null = null;
 
       // -----------------------------------------------------------------------
-      // Step 3: QC — enforce media-first rules
+      // Step 3: Media acquisition — live mode, FB/IG only, never fabricate URL
+      // -----------------------------------------------------------------------
+      if (effectiveLive && cfg.requiresMedia) {
+        try {
+          mediaUrl = await acquireMediaUrl(
+            opts.baseUrl, opts.secret, topVariant.content, platform,
+          );
+        } catch (err) {
+          errors.push(
+            '[media][' + account.id + '/' + platform + '] ' +
+            (err instanceof Error ? err.message : String(err)),
+          );
+          // mediaUrl stays null — QC will reject, preserving safety net
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // Step 4: QC
       // -----------------------------------------------------------------------
       const qcResult = enforceMediaQC({ platform, mediaType, mediaUrl });
 
@@ -216,31 +230,35 @@ export async function runOrchestrationCycle(
         qcPassed: qcResult.pass,
         qcReason: qcResult.reason,
         persisted: false,
+        published: false,
       };
       allDrafts.push(draft);
 
       // -----------------------------------------------------------------------
-      // Step 4: Persist as draft — only if QC passed and not dry_run
+      // Step 5: Persist
       // -----------------------------------------------------------------------
       if (qcResult.pass && !opts.dryRun) {
+        const publishNow = effectiveLive;
         try {
           const postRes = await postInternal<{ post: { id: string } }>(
-            opts.baseUrl,
-            opts.secret,
-            '/api/v1/posts',
+            opts.baseUrl, opts.secret, '/api/v1/posts',
             {
               account_id: account.id,
-              content_id:
-                'scheduler:' + account.id + ':' + new Date().toISOString().slice(0, 10),
+              content_id: 'scheduler:' + account.id + ':' + new Date().toISOString().slice(0, 10),
               revision: 1,
               caption: topVariant.content,
               media_type: mediaType,
-              publish_now: false,       // NEVER auto-publish
+              ...(mediaUrl ? { media_url: mediaUrl } : {}),
+              publish_now: publishNow,
               idempotency_key: draft.idempotencyKey,
             },
           );
           draft.persisted = true;
           draft.postId = postRes.post?.id;
+          if (publishNow) {
+            draft.published = true;
+            draftsQueued++;
+          }
         } catch (err) {
           errors.push(
             '[persist][' + account.id + '/' + platform + '] ' +
@@ -250,20 +268,16 @@ export async function runOrchestrationCycle(
       }
     }
 
-    // -----------------------------------------------------------------------
-    // Step 5: Metrics/learning — collect engagement on previously published posts
-    // -----------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Step 6: Metrics
+    // -------------------------------------------------------------------------
     if (!opts.dryRun) {
       try {
         const lr = await postInternal<{ processed: number }>(
-          opts.baseUrl,
-          opts.secret,
-          '/api/v1/learning',
-          { account_id: account.id },
+          opts.baseUrl, opts.secret, '/api/v1/learning', { account_id: account.id },
         );
         metricsProcessed += lr.processed ?? 0;
       } catch (err) {
-        // Non-fatal — metrics will be collected on next cycle
         errors.push(
           '[learning][' + account.id + '] ' +
           (err instanceof Error ? err.message : String(err)),
@@ -274,11 +288,12 @@ export async function runOrchestrationCycle(
 
   return {
     dryRun: opts.dryRun,
+    livePublish: effectiveLive,
     researchOk,
     drafts: allDrafts,
     draftsCreated: allDrafts.filter(d => d.qcPassed && d.persisted).length,
     draftsRejected: allDrafts.filter(d => !d.qcPassed).length,
-    draftsQueued: 0,
+    draftsQueued,
     metricsProcessed,
     errors,
     durationMs: Date.now() - t0,

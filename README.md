@@ -13,20 +13,33 @@ API-first publisher for Hermes. Google Flow/browser automation creates media; th
 - Threads text/image/video container creation, status polling and publish
 - Permalink lookup after publish
 - Cron/worker endpoint for scheduled jobs
+- Database-backed health check
+- Fail-closed Supabase configuration in production
 
 ## Setup
 
 1. Create a Supabase project.
-2. Run `supabase/schema.sql`, then `supabase/migrations/20260806_production_api.sql`.
-3. Create one owner row in `users` and set its UUID as `HERMES_OWNER_USER_ID`.
-4. Copy `.env.example` to `.env.local` and fill every required value.
-5. Install and run:
+2. Copy `.env.example` to `.env.local`.
+3. Fill `DB_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `HERMES_API_KEY`, `TOKEN_ENCRYPTION_KEY`, and the other required values.
+4. Bootstrap the database:
 
 ```bash
 npm ci
-npm run build
-npm start
+npm run db:bootstrap
 ```
+
+`db:bootstrap` detects an existing base schema, applies the production migration idempotently, and verifies the required tables. Do not send `DB_URL`, database passwords, service-role keys, or API secrets through chat.
+
+5. Create one owner row in `users` and set its UUID as `HERMES_OWNER_USER_ID`.
+6. Verify the app:
+
+```bash
+npm run check
+npm start
+curl http://localhost:3000/api/v1/health
+```
+
+A healthy deployment returns `ok: true`, `configured: true`, and `database: "ok"`.
 
 ## Connect an account
 
@@ -99,6 +112,7 @@ A completed job has `status=published`, `meta_post_id`, and normally `permalink`
 
 - The `meta-media` bucket is public because Meta must fetch the file from its servers. Use unguessable generated paths and lifecycle cleanup.
 - Do not expose the service-role key to the browser.
+- `ALLOW_MOCK_SUPABASE=true` is development/test-only and is ignored as a production strategy; production must have real Supabase configuration.
 - Run the worker once per minute using Vercel Cron, GitHub Actions, systemd timer, or another trusted scheduler.
 - Reusing an idempotency key returns the existing post instead of creating a duplicate.
 - Meta API version is configurable through `META_GRAPH_VERSION`; verify it against the app's supported version before deploy.
