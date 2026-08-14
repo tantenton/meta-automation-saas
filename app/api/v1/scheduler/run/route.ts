@@ -1,18 +1,23 @@
 /**
  * POST /api/v1/scheduler/run
  *
- * Trusted scheduled endpoint — invoked by cron (Vercel Cron, GitHub Actions,
- * or a system crontab) every N hours.
+ * Trusted scheduled endpoint — invoked by cron every N hours.
  *
- * Auth: Bearer CRON_SECRET  (same secret used by /api/v1/worker/run)
+ * Auth: Bearer CRON_SECRET
  *
  * Body (all optional):
- *   dry_run  boolean  — default true in dev; false only in production
+ *   dry_run  boolean  — override; default true unless conditions below are met
+ *   live     boolean  — request live publishing; only honoured when
+ *                       SCHEDULER_LIVE_PUBLISH=true env flag is set
  *   topic    string   — optional content topic hint
- *   limit    number   — max accounts to process this cycle (default 10)
+ *   limit    number   — max accounts to process (default 10)
  *
- * Safety guarantees:
- *  - publish_now is always false — drafts only, never auto-publish
+ * Live publish safety:
+ *   live=true is IGNORED unless process.env.SCHEDULER_LIVE_PUBLISH === 'true'.
+ *   dry_run defaults to true unless body.dry_run===false AND NODE_ENV=production.
+ *   livePublish is only effective when dryRun=false.
+ *
+ * Guarantees:
  *  - No raw secrets or tokens in the response
  *  - Every run is logged to scheduler_runs table for audit
  */
@@ -22,7 +27,7 @@ import { authorizeWorker } from '@/lib/server/api-auth';
 import { getSupabaseAdmin } from '@/lib/server/supabase-admin';
 import { runOrchestrationCycle, type AccountConfig } from '@/lib/scheduler/orchestrator';
 
-export const maxDuration = 300; // 5-minute Vercel function timeout
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   const denied = authorizeWorker(request);
@@ -34,6 +39,10 @@ export async function POST(request: NextRequest) {
   // dry_run defaults to true everywhere except explicit false in production
   const dryRun =
     body.dry_run === false && process.env.NODE_ENV === 'production' ? false : true;
+
+  // live publishing requires the dedicated env flag AND explicit body opt-in
+  const liveEnabled = process.env.SCHEDULER_LIVE_PUBLISH === 'true';
+  const livePublish = liveEnabled && body.live === true;
 
   const topic = typeof body.topic === 'string' ? body.topic : undefined;
   const limit = Math.min(Number(body.limit ?? 10), 20);
@@ -82,12 +91,12 @@ export async function POST(request: NextRequest) {
       baseUrl,
       secret,
       dryRun,
+      livePublish,
       accounts: accountConfigs,
       topic,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    // Best-effort audit log even on hard failure
     try {
       await db.from('scheduler_runs').insert({
         dry_run: dryRun,
@@ -122,6 +131,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     dry_run: result.dryRun,
+    live_publish: result.livePublish,
     accounts_processed: accountConfigs.length,
     research_ok: result.researchOk,
     drafts_created: result.draftsCreated,
@@ -130,17 +140,17 @@ export async function POST(request: NextRequest) {
     metrics_processed: result.metricsProcessed,
     errors: result.errors,
     duration_ms: result.durationMs,
-    // Only IDs — never include draft content in the HTTP response
     draft_ids: result.drafts.filter(d => d.postId).map(d => d.postId),
   });
 }
 
-/** GET is a health-check ping only — returns no data, costs nothing */
+/** GET is a health-check ping only */
 export async function GET(request: NextRequest) {
   const denied = authorizeWorker(request);
   if (denied) return denied;
   return NextResponse.json({
     message: 'Use POST to trigger orchestration. GET is a health-check ping only.',
     dry_run_default: true,
+    live_publish_available: process.env.SCHEDULER_LIVE_PUBLISH === 'true',
   });
 }
