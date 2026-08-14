@@ -27,6 +27,57 @@ interface GeneratedVariant {
   reasoning: string;
 }
 
+/**
+ * Robustly extract a JSON array from an AI response that may contain:
+ * - Fenced code blocks: ```json\n[...]\n```
+ * - Leading/trailing prose
+ * - Control characters (U+0000–U+001F except \t\n\r)
+ * - Multiple candidate arrays (picks the longest)
+ *
+ * Returns parsed array or throws with a descriptive message.
+ */
+function parseJsonArray(raw: string): unknown[] {
+  // Strip control chars except tab/newline/carriage-return
+  const cleaned = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+
+  // Remove fenced code blocks markers
+  const defenced = cleaned.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '');
+
+  // Find all [...] spans, pick the longest (most likely the real array)
+  const candidates: string[] = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < defenced.length; i++) {
+    if (defenced[i] === '[') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (defenced[i] === ']') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        candidates.push(defenced.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+
+  if (candidates.length === 0) {
+    throw new Error('No JSON array found in AI response: ' + defenced.slice(0, 200));
+  }
+
+  // Try each candidate longest-first
+  candidates.sort((a, b) => b.length - a.length);
+  const errors: string[] = [];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : String(e));
+    }
+  }
+  throw new Error('Failed to parse JSON array from AI response. Errors: ' + errors.join('; ') + ' | Raw (first 300): ' + defenced.slice(0, 300));
+}
+
 function jaccardSimilarity(text1: string, text2: string): number {
   const normalize = (t: string) => t.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 2);
   const set1 = new Set(normalize(text1));
@@ -167,11 +218,7 @@ Return JSON array dengan struktur:
       const aiData = await aiRes.json() as { choices: { message: { content: string } }[] };
       const rawResponse = aiData.choices?.[0]?.message?.content?.trim() || '';
 
-      // Extract JSON from response
-      const jsonMatch = rawResponse.match(/\[([\s\S]*)\]/);
-      const variantsJson = jsonMatch ? jsonMatch[0] : rawResponse;
-
-      generatedVariants = JSON.parse(variantsJson);
+      generatedVariants = parseJsonArray(rawResponse) as typeof generatedVariants;
     } catch (err) {
       return NextResponse.json({
         error: 'ai_generation_failed',
@@ -236,10 +283,7 @@ Return JSON array with all fields.`;
       const rankData = await rankRes.json() as { choices: { message: { content: string } }[] };
       const rankResponse = rankData.choices?.[0]?.message?.content?.trim() || '';
 
-      const jsonMatch = rankResponse.match(/\[([\s\S]*)\]/);
-      const rankJson = jsonMatch ? jsonMatch[0] : rankResponse;
-
-      rankedVariants = JSON.parse(rankJson) as GeneratedVariant[];
+      rankedVariants = parseJsonArray(rankResponse) as GeneratedVariant[];
 
       // Preserve original content if ranking model returns scores only.
       rankedVariants = rankedVariants.map((ranked, i) => ({ ...variantsWithNovelty[i], ...ranked, content: ranked.content || variantsWithNovelty[i]?.content || "", pattern_used: ranked.pattern_used || variantsWithNovelty[i]?.pattern_used || "", hook_type: ranked.hook_type || variantsWithNovelty[i]?.hook_type || "" }));
