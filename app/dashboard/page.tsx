@@ -1,140 +1,99 @@
 import Link from 'next/link';
+import { getDashboardSummary } from '@/lib/server/dashboard-data';
 
-const stats = [
-  {
-    label: 'Total Posts',
-    value: '0',
-    change: '+0 this week',
-    icon: (
-      <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-      </svg>
-    ),
-    color: '#6366f1',
-    bg: '#1e1b4b',
-  },
-  {
-    label: 'Scheduled',
-    value: '0',
-    change: 'Next 7 days',
-    icon: (
-      <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-        <line x1="3" y1="10" x2="21" y2="10"/>
-      </svg>
-    ),
-    color: '#8b5cf6',
-    bg: '#1e1a38',
-  },
-  {
-    label: 'Published',
-    value: '0',
-    change: 'All time',
-    icon: (
-      <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>
-    ),
-    color: '#10b981',
-    bg: '#064e3b',
-  },
-  {
-    label: 'Accounts',
-    value: '0',
-    change: 'Connected',
-    icon: (
-      <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-        <circle cx="9" cy="7" r="4"/>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-      </svg>
-    ),
-    color: '#f59e0b',
-    bg: '#451a03',
-  },
-];
+export const dynamic = 'force-dynamic';
 
-const quickActions = [
-  { label: 'Schedule Post', href: '/dashboard/posts', desc: 'Create and schedule a new post', color: '#6366f1' },
-  { label: 'Connect Account', href: '/dashboard/accounts', desc: 'Link Instagram, Facebook or Threads', color: '#8b5cf6' },
-  { label: 'View Analytics', href: '/dashboard/analytics', desc: 'See your engagement metrics', color: '#10b981' },
-];
+export default async function DashboardPage() {
+  let data: Awaited<ReturnType<typeof getDashboardSummary>> | null = null;
+  let error: string | null = null;
+  try {
+    data = await getDashboardSummary();
+  } catch (err) {
+    error = err instanceof Error ? err.message : String(err);
+  }
 
-export default function DashboardPage() {
+  const stats = [
+    { label: 'Total Posts', value: data?.totalPosts ?? '—', change: data ? `+${data.weekPosts} this week` : 'Database unavailable', color: '#6366f1', bg: '#1e1b4b' },
+    { label: 'Scheduled', value: data?.scheduled ?? '—', change: 'Next 7 days', color: '#8b5cf6', bg: '#1e1a38' },
+    { label: 'Published', value: data?.published ?? '—', change: 'All time', color: '#10b981', bg: '#064e3b' },
+    { label: 'Accounts', value: data?.accounts ?? '—', change: 'Active connections', color: '#f59e0b', bg: '#451a03' },
+  ];
+
   return (
     <div className="space-y-8">
-      {/* Welcome */}
-      <div>
-        <h2 className="text-2xl font-bold text-white">Welcome back 👋</h2>
-        <p className="mt-1 text-sm" style={{ color: '#6b7280' }}>
-          Here&apos;s what&apos;s happening with your social accounts today.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Operations overview</h2>
+          <p className="mt-1 text-sm text-zinc-500">Live data from Supabase. No placeholder metrics.</p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-medium ${error ? 'bg-red-950 text-red-300' : 'bg-emerald-950 text-emerald-300'}`}>
+          {error ? 'Database issue' : 'Live'}
+        </span>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {error && (
+        <div className="rounded-2xl border border-red-900 bg-red-950/40 p-4 text-sm text-red-200">
+          Dashboard data could not be loaded. Check `/api/v1/health` and Supabase configuration.
+          <div className="mt-1 text-xs text-red-400">{error}</div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl p-5 flex flex-col gap-3"
-            style={{ backgroundColor: '#111111', border: '1px solid #1f1f1f' }}
-          >
+          <div key={stat.label} className="rounded-2xl border border-zinc-800 bg-[#111] p-5">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium" style={{ color: '#9ca3af' }}>{stat.label}</span>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: stat.bg, color: stat.color }}>
-                {stat.icon}
-              </div>
+              <span className="text-sm font-medium text-zinc-400">{stat.label}</span>
+              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: stat.color, boxShadow: `0 0 18px ${stat.color}` }} />
             </div>
-            <div>
-              <p className="text-3xl font-bold text-white">{stat.value}</p>
-              <p className="text-xs mt-1" style={{ color: '#6b7280' }}>{stat.change}</p>
-            </div>
+            <p className="mt-5 text-3xl font-bold text-white">{stat.value}</p>
+            <p className="mt-1 text-xs text-zinc-500">{stat.change}</p>
           </div>
         ))}
       </div>
 
-      {/* Quick Actions */}
-      <div>
-        <h3 className="text-base font-semibold text-white mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {quickActions.map((action) => (
-            <Link
-              key={action.href}
-              href={action.href}
-              className="rounded-2xl p-5 flex flex-col gap-2 transition-all hover:scale-[1.02]"
-              style={{ backgroundColor: '#111111', border: '1px solid #1f1f1f' }}
-            >
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: action.color }} />
-              <p className="font-semibold text-white text-sm">{action.label}</p>
-              <p className="text-xs" style={{ color: '#6b7280' }}>{action.desc}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
+      <div className="grid gap-6 xl:grid-cols-[1.4fr_.6fr]">
+        <section className="rounded-2xl border border-zinc-800 bg-[#111] p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-white">Recent jobs</h3>
+              <p className="text-xs text-zinc-500">Latest publish and scheduling activity</p>
+            </div>
+            <Link href="/dashboard/posts" className="text-xs font-medium text-indigo-400 hover:text-indigo-300">View all</Link>
+          </div>
+          {!data?.recentPosts.length ? (
+            <div className="rounded-xl border border-dashed border-zinc-800 p-8 text-center text-sm text-zinc-500">No post jobs yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {data.recentPosts.map((post) => (
+                <div key={post.id} className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-black/20 p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-zinc-200">{post.content}</p>
+                    <p className="mt-1 text-xs text-zinc-600">{post.accounts?.platform ?? 'unknown'} · {new Date(post.created_at).toLocaleString()}</p>
+                  </div>
+                  <span className="rounded-full bg-zinc-900 px-2.5 py-1 text-xs capitalize text-zinc-300">{post.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
-      {/* Empty State */}
-      <div
-        className="rounded-2xl p-10 flex flex-col items-center justify-center text-center"
-        style={{ backgroundColor: '#111111', border: '1px dashed #2a2a2a' }}
-      >
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: '#1e1b4b' }}>
-          <svg width="28" height="28" fill="none" stroke="#6366f1" strokeWidth="1.5" viewBox="0 0 24 24">
-            <path d="M12 5v14M5 12h14"/>
-          </svg>
-        </div>
-        <p className="text-white font-semibold">No activity yet</p>
-        <p className="text-sm mt-1 mb-5" style={{ color: '#6b7280' }}>
-          Connect your social accounts and start scheduling posts
-        </p>
-        <Link
-          href="/dashboard/accounts"
-          className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
-        >
-          Connect Account
-        </Link>
+        <section className="rounded-2xl border border-zinc-800 bg-[#111] p-5">
+          <h3 className="font-semibold text-white">Quick actions</h3>
+          <div className="mt-4 space-y-3">
+            <Link href="/dashboard/posts" className="block rounded-xl border border-indigo-900 bg-indigo-950/40 p-4 hover:bg-indigo-950/60">
+              <p className="text-sm font-medium text-indigo-200">Create or schedule post</p>
+              <p className="mt-1 text-xs text-indigo-400">Use real accounts and job queue</p>
+            </Link>
+            <Link href="/dashboard/accounts" className="block rounded-xl border border-violet-900 bg-violet-950/40 p-4 hover:bg-violet-950/60">
+              <p className="text-sm font-medium text-violet-200">Manage connected accounts</p>
+              <p className="mt-1 text-xs text-violet-400">Check token and connection state</p>
+            </Link>
+            <Link href="/dashboard/analytics" className="block rounded-xl border border-emerald-900 bg-emerald-950/40 p-4 hover:bg-emerald-950/60">
+              <p className="text-sm font-medium text-emerald-200">Open analytics</p>
+              <p className="mt-1 text-xs text-emerald-400">Review real performance data</p>
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   );
