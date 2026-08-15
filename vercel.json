@@ -9,11 +9,5 @@
     "app/api/v1/threads-auto-reply/route.ts": {
       "maxDuration": 60
     }
-  },
-  "crons": [
-    {
-      "path": "/api/v1/threads-auto-reply",
-      "schedule": "0 */3 * * *"
-    }
-  ]
+  }
 }
