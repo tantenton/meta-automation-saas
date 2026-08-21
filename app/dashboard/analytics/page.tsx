@@ -30,6 +30,7 @@ interface TopPost {
   content: string;
   permalink: string | null;
   published_at: string | null;
+  is_synced?: boolean;
 }
 
 interface AnalyticsData {
@@ -40,9 +41,9 @@ interface AnalyticsData {
 }
 
 const metricConfig = {
+  posts: { label: 'Posts Published', color: '#10b981', key: 'posts' },
   reach: { label: 'Reach & Views', color: '#6366f1', key: 'reach' },
   engagement: { label: 'Engagement', color: '#8b5cf6', key: 'engagement' },
-  posts: { label: 'Posts Published', color: '#10b981', key: 'posts' },
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -63,7 +64,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function AnalyticsPage() {
-  const [activeMetric, setActiveMetric] = useState<'reach' | 'engagement' | 'posts'>('reach');
+  const [activeMetric, setActiveMetric] = useState<'posts' | 'reach' | 'engagement'>('posts');
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -87,30 +88,25 @@ export default function AnalyticsPage() {
     try {
       const res = await fetch('/api/v1/threads/insights?mode=summary');
       if (res.ok) {
-        setSyncMsg('Synced latest insights from Meta Graph API!');
-        fetchAnalytics();
+        setSyncMsg('✅ Synced live insights from Meta Graph API!');
       } else {
-        setSyncMsg('Synced live post activity from database.');
-        fetchAnalytics();
+        setSyncMsg('ℹ️ Synced database records.');
       }
+      fetchAnalytics();
     } catch (e) {
-      setSyncMsg('Updated insights cache.');
+      setSyncMsg('⚠️ Sync completed.');
       fetchAnalytics();
     }
     setSyncing(false);
-    setTimeout(() => setSyncMsg(null), 3000);
+    setTimeout(() => setSyncMsg(null), 3500);
   };
 
   const summary = data?.summary;
-  const engagementRate = summary && summary.total_reach > 0
-    ? ((summary.total_likes + summary.total_comments + summary.total_shares) / summary.total_reach * 100).toFixed(1)
-    : '4.8';
-
   const statCards = [
-    { label: 'Total Estimated Reach', value: summary ? summary.total_reach.toLocaleString() : '0', color: '#6366f1', sub: 'Past 7 days' },
-    { label: 'Average Engagement', value: `${engagementRate}%`, color: '#8b5cf6', sub: 'Likes, comments & shares' },
-    { label: 'Total Interactions', value: summary ? (summary.total_likes + summary.total_comments + summary.total_shares).toLocaleString() : '0', color: '#10b981', sub: 'Across all platforms' },
-    { label: 'Total Posts Published', value: summary ? String(summary.posts_published) : '0', color: '#f59e0b', sub: 'Active organic content' },
+    { label: 'Total Posts Published', value: summary ? String(summary.posts_published) : '0', color: '#10b981', sub: 'Real verified posts in database' },
+    { label: 'Synced Total Likes', value: summary ? summary.total_likes.toLocaleString() : '0', color: '#8b5cf6', sub: 'Direct from Meta Insights' },
+    { label: 'Synced Total Reach', value: summary ? summary.total_reach.toLocaleString() : '0', color: '#6366f1', sub: 'Direct from Meta Insights' },
+    { label: 'Total Interactions', value: summary ? (summary.total_likes + summary.total_comments + summary.total_shares).toLocaleString() : '0', color: '#f59e0b', sub: 'Likes, replies & shares' },
   ];
 
   return (
@@ -123,7 +119,7 @@ export default function AnalyticsPage() {
         </div>
         <div className="flex items-center gap-3">
           {syncMsg && (
-            <span className="text-xs text-emerald-400 font-medium animate-fade-in">{syncMsg}</span>
+            <span className="text-xs text-emerald-400 font-medium">{syncMsg}</span>
           )}
           <button
             onClick={handleSyncInsights}
@@ -133,14 +129,14 @@ export default function AnalyticsPage() {
             {syncing ? (
               <>
                 <div className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                Syncing Meta API...
+                Fetching Meta Graph API...
               </>
             ) : (
               <>
                 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
                 </svg>
-                Sync Insights
+                Sync Meta Insights
               </>
             )}
           </button>
@@ -164,7 +160,7 @@ export default function AnalyticsPage() {
           <div>
             <h3 className="font-semibold text-white">7-Day Trend Analysis</h3>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Continuous live aggregation from Meta accounts and published posts
+              Visualizing actual posts published and recorded Meta Insights per day
             </p>
           </div>
 
@@ -204,7 +200,7 @@ export default function AnalyticsPage() {
                 </defs>
                 <CartesianGrid stroke="#27272a" strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="day" tick={{ fill: '#71717a', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#71717a', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#71717a', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip content={<CustomTooltip />} />
                 <Area
                   type="monotone"
@@ -223,7 +219,7 @@ export default function AnalyticsPage() {
 
       {/* Top Published Content */}
       <div className="rounded-2xl p-6 border border-white/10 bg-[#111113] shadow-xl space-y-4">
-        <h3 className="font-semibold text-white">Top Performing Published Content</h3>
+        <h3 className="font-semibold text-white">Live Published Content ({data?.top_posts?.length || 0})</h3>
 
         {loading ? (
           <div className="flex items-center justify-center py-10">
@@ -244,6 +240,11 @@ export default function AnalyticsPage() {
                     {post.published_at && (
                       <span className="text-[11px] text-zinc-500">• {new Date(post.published_at).toLocaleDateString()}</span>
                     )}
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${
+                      post.is_synced ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-400'
+                    }`}>
+                      {post.is_synced ? 'Synced' : 'Belum Sync Insights'}
+                    </span>
                   </div>
                   <p className="text-xs text-zinc-200 line-clamp-2">{post.content}</p>
                 </div>
@@ -260,7 +261,7 @@ export default function AnalyticsPage() {
                       rel="noopener noreferrer"
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-400 hover:bg-indigo-500/10 border border-indigo-500/20 transition"
                     >
-                      View ↗
+                      View on {post.platform} ↗
                     </a>
                   )}
                 </div>

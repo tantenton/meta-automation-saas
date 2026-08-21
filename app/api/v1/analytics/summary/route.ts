@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   const startDate = Object.keys(dayBuckets)[0];
 
-  // 2. Fetch rows from analytics table (if present)
+  // 2. Fetch real rows from analytics table (if scraped by worker)
   const { data: analyticsRows } = await db
     .from('analytics')
     .select('date, reach, likes, comments, shares')
@@ -60,11 +60,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 3. Fetch rows from post_insights table (if present)
+  // 3. Fetch real rows from post_insights table (if scraped from Threads/Meta API)
   const { data: insightRows } = await db
     .from('post_insights')
-    .select('snapshot_date, views, reach, likes, replies, reposts')
+    .select('post_id, snapshot_date, views, reach, likes, replies, reposts')
     .gte('snapshot_date', startDate);
+
+  const postInsightMap: Record<string, { views: number; reach: number; likes: number; replies: number; reposts: number }> = {};
 
   for (const row of insightRows || []) {
     const d = row.snapshot_date as string;
@@ -74,9 +76,18 @@ export async function GET(request: NextRequest) {
       dayBuckets[d].reach += reach;
       dayBuckets[d].engagement += eng;
     }
+    if (row.post_id) {
+      postInsightMap[row.post_id] = {
+        views: Number(row.views) || 0,
+        reach: Number(row.reach) || 0,
+        likes: Number(row.likes) || 0,
+        replies: Number(row.replies) || 0,
+        reposts: Number(row.reposts) || 0,
+      };
+    }
   }
 
-  // 4. Fetch published posts activity for the 7 days
+  // 4. Fetch actual published posts activity for the 7 days
   const { data: publishedIn7Days } = await db
     .from('posts')
     .select('id, content, permalink, published_at, created_at, accounts(platform, account_name)')
@@ -87,45 +98,43 @@ export async function GET(request: NextRequest) {
     const dateStr = (post.published_at || post.created_at || '').split('T')[0];
     if (dayBuckets[dateStr]) {
       dayBuckets[dateStr].posts += 1;
-      // Default estimate if direct analytics haven't scraped yet
-      if (dayBuckets[dateStr].reach === 0) {
-        dayBuckets[dateStr].reach += 12;
-      }
     }
   }
 
   const chartData = Object.values(dayBuckets);
 
-  // 5. Total published posts count
+  // 5. Total published posts count (100% exact from posts table)
   const { count: totalPublishedCount } = await db
     .from('posts')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'published');
 
-  // 6. Top recent published posts
+  // 6. Top recent published posts (100% exact metadata, strictly real metrics only)
   const { data: recentPublished } = await db
     .from('posts')
     .select('id, content, permalink, published_at, meta_post_id, accounts(platform, account_name)')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
-    .limit(8);
+    .limit(10);
 
   const topPosts = (recentPublished || []).map((p: any) => {
     const acc = Array.isArray(p.accounts) ? p.accounts[0] : p.accounts;
+    const insight = postInsightMap[p.id] || (p.meta_post_id ? postInsightMap[p.meta_post_id] : null);
+
     return {
       post_id: p.id,
-      platform: acc?.platform || 'instagram',
+      platform: acc?.platform || 'meta',
       account_name: acc?.account_name || 'Creator',
       content: p.content || '',
       permalink: p.permalink,
       published_at: p.published_at,
-      likes: Math.max(1, (p.content?.length || 10) % 15 + 2),
-      reach: Math.max(20, (p.content?.length || 10) * 3 + 45),
+      likes: insight ? insight.likes : 0,
+      reach: insight ? (insight.reach || insight.views) : 0,
+      is_synced: Boolean(insight),
     };
   });
 
   const totalReach = chartData.reduce((s, r) => s + r.reach, 0);
-  const totalEngagement = chartData.reduce((s, r) => s + r.engagement, 0);
   const totalLikes = (analyticsRows || []).reduce((s, r) => s + ((r.likes as number) || 0), 0) + (insightRows || []).reduce((s, r) => s + ((r.likes as number) || 0), 0);
   const totalComments = (analyticsRows || []).reduce((s, r) => s + ((r.comments as number) || 0), 0) + (insightRows || []).reduce((s, r) => s + ((r.replies as number) || 0), 0);
   const totalShares = (analyticsRows || []).reduce((s, r) => s + ((r.shares as number) || 0), 0) + (insightRows || []).reduce((s, r) => s + ((r.reposts as number) || 0), 0);
@@ -134,7 +143,7 @@ export async function GET(request: NextRequest) {
     chart_data: chartData,
     summary: {
       total_reach: totalReach,
-      total_likes: totalLikes || topPosts.reduce((s, p) => s + p.likes, 0),
+      total_likes: totalLikes,
       total_comments: totalComments,
       total_shares: totalShares,
       posts_published: totalPublishedCount || 0,
