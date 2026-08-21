@@ -4,16 +4,20 @@ import { encryptToken } from '@/lib/server/token-crypto';
 
 const FB_APP_ID = process.env.META_APP_ID!;
 const FB_APP_SECRET = process.env.META_APP_SECRET!;
-const REDIRECT_URI = process.env.META_FACEBOOK_REDIRECT_URI!;
-const APP_URL = process.env.APP_URL || 'https://meta-automation-saas.vercel.app';
 const GRAPH_VERSION = process.env.META_GRAPH_VERSION || 'v23.0';
-const OWNER_USER_ID = process.env.HERMES_OWNER_USER_ID!;
-
-const SUCCESS_URL = `${APP_URL}/settings/integrations/facebook?status=connected`;
-const ERROR_URL = `${APP_URL}/settings/integrations/facebook?status=error`;
+const OWNER_USER_ID = process.env.HERMES_OWNER_USER_ID || '00000000-0000-0000-0000-000000000000';
 
 export async function GET(request: NextRequest) {
+  const host = request.headers.get('host') || 'meta-automation-saas.vercel.app';
+  const protocol = host.includes('localhost') ? 'http' : 'https';
+  const APP_URL = process.env.APP_URL || `${protocol}://${host}`;
+  const REDIRECT_URI = process.env.META_FACEBOOK_REDIRECT_URI || `${APP_URL}/api/oauth/facebook/callback`;
+
+  const SUCCESS_URL = `${APP_URL}/dashboard/accounts?status=fb_connected`;
+  const ERROR_URL = `${APP_URL}/dashboard/accounts?status=fb_error`;
+
   const { searchParams } = new URL(request.url);
+
 
   // Detect Meta OAuth errors
   const oauthError = searchParams.get('error');

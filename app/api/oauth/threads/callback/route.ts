@@ -3,13 +3,16 @@ import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/server/supabase-admin';
 import { encryptToken } from '@/lib/server/token-crypto';
 
-const THREADS_APP_ID = process.env.THREADS_APP_ID || '2078424476129562';
-const THREADS_APP_SECRET = process.env.THREADS_APP_SECRET!;
-const REDIRECT_URI = 'https://meta-automation-saas.vercel.app/api/oauth/threads/callback';
-const APP_URL = process.env.APP_URL || 'https://meta-automation-saas.vercel.app';
-const OWNER_USER_ID = process.env.HERMES_OWNER_USER_ID!;
+const THREADS_APP_ID = process.env.THREADS_APP_ID || process.env.META_APP_ID || '2078424476129562';
+const THREADS_APP_SECRET = process.env.THREADS_APP_SECRET || process.env.META_APP_SECRET!;
+const OWNER_USER_ID = process.env.HERMES_OWNER_USER_ID || '00000000-0000-0000-0000-000000000000';
 
 export async function GET(request: NextRequest) {
+  const host = request.headers.get('host') || 'meta-automation-saas.vercel.app';
+  const protocol = host.includes('localhost') ? 'http' : 'https';
+  const APP_URL = process.env.APP_URL || `${protocol}://${host}`;
+  const REDIRECT_URI = process.env.THREADS_REDIRECT_URI || `${APP_URL}/api/oauth/threads/callback`;
+
   const { searchParams } = request.nextUrl;
   const code = searchParams.get('code');
   const state = searchParams.get('state');
@@ -17,19 +20,19 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     const desc = searchParams.get('error_description') || error;
-    return NextResponse.redirect(`${APP_URL}/settings/integrations/threads?status=error&reason=${encodeURIComponent(desc)}`);
+    return NextResponse.redirect(`${APP_URL}/dashboard/accounts?status=threads_error&reason=${encodeURIComponent(desc)}`);
   }
 
   // Validate state
   const cookieStore = await cookies();
   const savedState = cookieStore.get('threads_oauth_state')?.value;
   if (!state || !savedState || state !== savedState) {
-    return NextResponse.redirect(`${APP_URL}/settings/integrations/threads?status=error&reason=state_mismatch`);
+    return NextResponse.redirect(`${APP_URL}/dashboard/accounts?status=threads_error&reason=state_mismatch`);
   }
   cookieStore.delete('threads_oauth_state');
 
   if (!code) {
-    return NextResponse.redirect(`${APP_URL}/settings/integrations/threads?status=error&reason=no_code`);
+    return NextResponse.redirect(`${APP_URL}/dashboard/accounts?status=threads_error&reason=no_code`);
   }
 
   try {
@@ -74,14 +77,15 @@ export async function GET(request: NextRequest) {
       token_expires_at: expiresAt,
       token_last_validated_at: new Date().toISOString(),
       is_active: true,
-    }, { onConflict: 'platform,account_id' });
+    }, { onConflict: 'user_id,platform,account_id' });
 
     if (upsertErr) throw new Error(`DB upsert failed: ${upsertErr.message}`);
 
-    return NextResponse.redirect(`${APP_URL}/settings/integrations/threads?status=connected`);
+    return NextResponse.redirect(`${APP_URL}/dashboard/accounts?status=threads_connected`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Threads OAuth error:', msg);
-    return NextResponse.redirect(`${APP_URL}/settings/integrations/threads?status=error&reason=${encodeURIComponent(msg)}`);
+    return NextResponse.redirect(`${APP_URL}/dashboard/accounts?status=threads_error&reason=${encodeURIComponent(msg)}`);
   }
 }
+

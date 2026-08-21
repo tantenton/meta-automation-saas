@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 
 const FB_APP_ID = process.env.META_APP_ID!;
-const REDIRECT_URI = process.env.META_FACEBOOK_REDIRECT_URI!;
 const GRAPH_VERSION = process.env.META_GRAPH_VERSION || 'v23.0';
 
 // Minimum permissions for Facebook Page organic posting only
@@ -12,10 +11,15 @@ const SCOPES = [
   'pages_manage_posts',
 ].join(',');
 
-export async function GET() {
-  if (!FB_APP_ID || !REDIRECT_URI) {
+export async function GET(request: Request) {
+  const host = request.headers.get('host') || 'meta-automation-saas.vercel.app';
+  const protocol = host.includes('localhost') ? 'http' : 'https';
+  const APP_URL = process.env.APP_URL || `${protocol}://${host}`;
+  const REDIRECT_URI = process.env.META_FACEBOOK_REDIRECT_URI || `${APP_URL}/api/oauth/facebook/callback`;
+
+  if (!FB_APP_ID) {
     return NextResponse.json(
-      { error: 'server_misconfigured', message: 'META_APP_ID or META_FACEBOOK_REDIRECT_URI not set' },
+      { error: 'server_misconfigured', message: 'META_APP_ID is not set in environment' },
       { status: 503 }
     );
   }
@@ -43,3 +47,4 @@ export async function GET() {
 
   return response;
 }
+

@@ -3,21 +3,25 @@ import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/server/supabase-admin';
 import { encryptToken } from '@/lib/server/token-crypto';
 
-const IG_APP_ID = process.env.IG_APP_ID!;
-const IG_APP_SECRET = process.env.IG_APP_SECRET!;
-const REDIRECT_URI = process.env.IG_REDIRECT_URI!;
-const APP_URL = process.env.APP_URL || 'https://meta-automation-saas.vercel.app';
-const OWNER_USER_ID = process.env.HERMES_OWNER_USER_ID!;
 const GRAPH_VERSION = process.env.META_GRAPH_VERSION || 'v23.0';
 
-const SUCCESS_URL = `${APP_URL}/dashboard/accounts?status=ig_connected`;
-const ERROR_URL = `${APP_URL}/dashboard/accounts?status=ig_error`;
-
 export async function GET(request: NextRequest) {
+  const host = request.headers.get('host') || 'meta-automation-saas.vercel.app';
+  const protocol = host.includes('localhost') ? 'http' : 'https';
+  const APP_URL = process.env.APP_URL || `${protocol}://${host}`;
+  const REDIRECT_URI = process.env.IG_REDIRECT_URI || `${APP_URL}/api/oauth/instagram/callback`;
+  const IG_APP_ID = process.env.IG_APP_ID || process.env.META_APP_ID!;
+  const IG_APP_SECRET = process.env.IG_APP_SECRET || process.env.META_APP_SECRET!;
+  const OWNER_USER_ID = process.env.HERMES_OWNER_USER_ID || '00000000-0000-0000-0000-000000000000';
+
+  const SUCCESS_URL = `${APP_URL}/dashboard/accounts?status=ig_connected`;
+  const ERROR_URL = `${APP_URL}/dashboard/accounts?status=ig_error`;
+
   const { searchParams } = request.nextUrl;
   const code = searchParams.get('code');
   const state = searchParams.get('state');
   const error = searchParams.get('error');
+
 
   console.log('[ig-callback] oauth_code_received=' + Boolean(code));
 

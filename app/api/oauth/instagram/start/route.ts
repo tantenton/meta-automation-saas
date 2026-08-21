@@ -2,19 +2,22 @@ import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { cookies } from 'next/headers';
 
-const IG_APP_ID = process.env.IG_APP_ID!;
-const REDIRECT_URI = process.env.IG_REDIRECT_URI!;
+export async function GET(request: Request) {
+  const host = request.headers.get('host') || 'meta-automation-saas.vercel.app';
+  const protocol = host.includes('localhost') ? 'http' : 'https';
+  const APP_URL = process.env.APP_URL || `${protocol}://${host}`;
+  const REDIRECT_URI = process.env.IG_REDIRECT_URI || `${APP_URL}/api/oauth/instagram/callback`;
+  const IG_APP_ID = process.env.IG_APP_ID || process.env.META_APP_ID;
 
-export async function GET() {
-  if (!IG_APP_ID || !REDIRECT_URI) {
-    return NextResponse.json({ error: 'server_misconfigured', message: 'IG_APP_ID or IG_REDIRECT_URI not set' }, { status: 503 });
+  if (!IG_APP_ID) {
+    return NextResponse.json({ error: 'server_misconfigured', message: 'IG_APP_ID or META_APP_ID not set' }, { status: 503 });
   }
 
   const state = randomBytes(16).toString('hex');
   const cookieStore = await cookies();
   cookieStore.set('ig_oauth_state', state, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 600,
     path: '/',
@@ -30,3 +33,4 @@ export async function GET() {
   console.log('[ig-start] oauth_redirect_initiated=true');
   return NextResponse.redirect(url.toString());
 }
+
