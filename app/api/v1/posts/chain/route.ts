@@ -19,12 +19,27 @@ const schema = z.object({
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function waitReady(token: string, containerId: string, maxAttempts = 24, pollMs = 5000) {
+async function waitReady(token: string, containerId: string, maxAttempts = 30, pollMs = 3000) {
+  // Initial wait — Threads needs a moment before container is queryable
+  await sleep(2000);
   for (let i = 0; i < maxAttempts; i++) {
-    const status = await getThreadsContainerStatus(token, containerId) as Record<string, unknown>;
-    const code = String((status.status_code as string) || (status.status as string) || '').toUpperCase();
+    let status: Record<string, unknown>;
+    try {
+      status = await getThreadsContainerStatus(token, containerId) as Record<string, unknown>;
+    } catch {
+      await sleep(pollMs);
+      continue;
+    }
+    // Threads returns status_code field (not status)
+    const code = String(status.status_code ?? status.status ?? '').toUpperCase();
+    if (!code || code === 'IN_PROGRESS') {
+      await sleep(pollMs);
+      continue;
+    }
     if (['FINISHED', 'PUBLISHED'].includes(code)) return;
-    if (['ERROR', 'EXPIRED', 'FAILED'].includes(code)) throw new Error((status.error_message as string) || code);
+    if (['ERROR', 'EXPIRED', 'FAILED'].includes(code)) {
+      throw new Error((status.error_message as string) || code);
+    }
     await sleep(pollMs);
   }
   throw new Error('Container did not become ready before timeout');
