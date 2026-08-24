@@ -49,7 +49,8 @@ Cara komen yang natural:
 - Singkat, 1-3 kalimat max
 - Casual Indonesian, pakai "gue/lo" kalau terasa natural
 - HARUS spesifik ke konten post — bukan generic
-- Bisa: share pengalaman relatable, tambah insight ringan, tanya lanjutan yang genuine
+- Bisa: tambah insight ringan atau tanya lanjutan yang genuine
+- JANGAN mengarang pengalaman, pekerjaan, teman, kebiasaan, hasil, atau penggunaan produk pribadi. Jangan menulis "gue pernah", "pengalaman gue", "temen gue", "gue switch", atau klaim personal lain kecuali faktanya diberikan di konteks.
 - JANGAN: "keren kak!", "mantap!", "setuju banget!", "nice post", atau apapun yang bisa dikirim ke siapa saja
 - JANGAN: sok tahu, sales, promosi diri, atau bawa-bawa produk/jasa
 - Kalau post tidak relevan / sensitif / politis / SARA / scam / medis / keuangan: return SKIP
@@ -98,7 +99,11 @@ async function draftComment(
     const data = await res.json() as { choices?: { message?: { content?: string } }[] };
     const text = data.choices?.[0]?.message?.content?.trim();
     if (!text || text === 'SKIP' || text.length < 5) return null;
-    if (text.length > 450) return text.slice(0, 450);
+    // Fail closed on fabricated first-person anecdotes. The public persona may
+    // add an observation, but must not invent biography or personal evidence.
+    const fabricatedPersonalClaim = /\b(gue|gua|aku)\s+(pernah|switch|pakai|pake|punya|kerja|coba|nyoba)|\b(pengalaman|temen|teman)\s+(gue|gua|aku)\b/i;
+    if (fabricatedPersonalClaim.test(text)) return null;
+    if (text.length > 150) return text.slice(0, 150);
     return text;
   } catch {
     return null;
