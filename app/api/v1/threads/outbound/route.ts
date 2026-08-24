@@ -101,7 +101,7 @@ async function draftComment(
     if (!text || text === 'SKIP' || text.length < 5) return null;
     // Fail closed on fabricated first-person anecdotes. The public persona may
     // add an observation, but must not invent biography or personal evidence.
-    const fabricatedPersonalClaim = /\b(gue|gua|aku)\s+(pernah|switch|pakai|pake|punya|kerja|coba|nyoba)|\b(pengalaman|temen|teman)\s+(gue|gua|aku)\b/i;
+    const fabricatedPersonalClaim = /\b(gue|gua|aku)\s+(pernah|switch|pakai|pake|punya|kerja|coba|nyoba|relate|juga)|\b(pengalaman|temen|teman)\s+(gue|gua|aku)\b|\b(di|kalau|kalo)\s+(gue|gua|aku)\b/i;
     if (fabricatedPersonalClaim.test(text)) return null;
     if (text.length > 150) return text.slice(0, 150);
     return text;
