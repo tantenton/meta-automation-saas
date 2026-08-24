@@ -1,0 +1,52 @@
+{
+  "job_id": "meta-automation-outbound-discovery-002",
+  "repo_path": "C:\\BirruLabs\\meta-automation-saas",
+  "task_file": ".birru/tasks/ACTIVE_TASK.md",
+  "branch": "agent/antigravity/meta-automation-outbound-discovery-002",
+  "mode": "headless",
+  "execution": {
+    "model_chain": [
+      {
+        "model": "claude-sonnet-4-6",
+        "max_attempts": 1
+      },
+      {
+        "model": "gpt-oss-120b-medium",
+        "max_attempts": 1
+      },
+      {
+        "model": "claude-opus-4-6-thinking",
+        "max_attempts": 1
+      }
+    ],
+    "fallback_provider": "hermes-9router",
+    "fallback_on": [
+      "quota_exhausted",
+      "rate_limited",
+      "model_unavailable",
+      "gateway_unavailable"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "npm test -- --runInBand",
+      "npm run lint",
+      "npm run build"
+    ],
+    "timeout_seconds": 1800
+  },
+  "git": {
+    "checkpoint": true,
+    "final_commit": true,
+    "push": false,
+    "protected_branches": [
+      "main",
+      "master",
+      "production"
+    ]
+  },
+  "resume": {
+    "enabled": true,
+    "checkpoint_on_interrupt": true
+  }
+}
