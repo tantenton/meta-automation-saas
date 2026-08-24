@@ -152,52 +152,58 @@ async function fetchViaJina(
 
     const body = await res.text();
 
-    // Extract post shortcodes + text from Jina markdown output
-    const posts: CandidatePost[] = [];
-    const regex = /https:\/\/www\.threads\.com\/@[^/]+\/post\/([A-Za-z0-9_-]+)[^\n)]*\)?\n+([^\n!\[]{10,500})/g;
-    let m: RegExpExecArray | null;
-    while ((m = regex.exec(body)) !== null && posts.length < limit) {
-      const id = m[1];
-      const text = m[2].trim();
-      if (text.length >= 10) {
-        posts.push({
-          id,
-          text,
-          username,
-          permalink: `https://www.threads.com/@${username}/post/${id}`,
-          timestamp: null,
-          reply_count: null,
-          like_count: null,
-        });
-      }
-    }
-
-    // Fallback block extraction if regex yields nothing
-    if (!posts.length) {
-      const blocks = body.split(/\n--\n/).slice(1, limit + 1);
-      for (let i = 0; i < blocks.length; i++) {
-        const text = blocks[i]
-          .replace(/!\[.*?\]\(.*?\)/g, '')
-          .replace(/\[.*?\]\(.*?\)/g, '')
-          .trim();
-        if (text.length >= 10) {
-          posts.push({
-            id: `jina-${username}-${i}`,
-            text,
-            username,
-            permalink: null,
-            timestamp: null,
-            reply_count: null,
-            like_count: null,
-          });
-        }
-      }
-    }
-
-    return { posts, ok: true };
+    return { posts: parseJinaThreadsMarkdown(body, username, limit), ok: true };
   } catch (e) {
     return { posts: [], ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/** Parse the current public Jina Threads profile markdown format. */
+export function parseJinaThreadsMarkdown(body: string, username: string, limit = 8): CandidatePost[] {
+  const posts: CandidatePost[] = [];
+  const seen = new Set<string>();
+  const link = /https:\/\/www\.threads\.com\/@[^/\s)]+\/post\/([A-Za-z0-9_-]+)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = link.exec(body)) !== null && posts.length < limit) {
+    const id = match[1];
+    if (seen.has(id)) continue;
+    seen.add(id);
+
+    const tail = body.slice(match.index + match[0].length, match.index + match[0].length + 1200);
+    const lines = tail.split('\n').map(line => line.trim());
+    const textLines: string[] = [];
+    for (const line of lines) {
+      if (!line) {
+        if (textLines.length) break;
+        continue;
+      }
+      if (/^[)\]]+$/.test(line) || /^Translate$/i.test(line)) continue;
+      if (/^!?\[.*?\]\(https?:\/\//.test(line)) {
+        if (textLines.length) break;
+        continue;
+      }
+      if (/^\d+$/.test(line)) {
+        if (textLines.length) break;
+        continue;
+      }
+      const cleaned = line.replace(/^\)+/, '').trim();
+      if (cleaned.length >= 3) textLines.push(cleaned);
+    }
+    const text = textLines.join(' ').slice(0, 500).trim();
+    if (text.length >= 10) {
+      posts.push({
+        id,
+        text,
+        username,
+        permalink: `https://www.threads.com/@${username}/post/${id}`,
+        timestamp: null,
+        reply_count: null,
+        like_count: null,
+      });
+    }
+  }
+  return posts;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +245,16 @@ export async function discoverTrendCandidates(opts: {
     if (cand.user_id) {
       result = await fetchViaThreadsApi(token, cand.user_id, cand.username);
       source = 'threads_api';
+      // Cached numeric IDs can be stale or inaccessible to this app token.
+      // The public username remains usable, so fail over instead of dropping it.
+      if (!result.ok || !result.posts.length) {
+        const apiError = result.error;
+        const fallback = await fetchViaJina(cand.username);
+        result = fallback.ok && fallback.posts.length
+          ? fallback
+          : { ...fallback, error: `threads_api: ${apiError ?? 'empty'}; jina: ${fallback.error ?? 'empty'}` };
+        source = 'jina_reader';
+      }
     } else {
       result = await fetchViaJina(cand.username);
       source = 'jina_reader';

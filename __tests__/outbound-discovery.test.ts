@@ -25,6 +25,7 @@ import {
   scoreRelevance,
   DEFAULT_WEIGHTS,
 } from '../lib/threads/persona-weights';
+import { parseJinaThreadsMarkdown } from '../lib/threads/trend-discovery';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,6 +43,17 @@ function makePost(overrides: Partial<CandidatePost> = {}): CandidatePost {
     ...overrides,
   };
 }
+
+describe('Jina Threads markdown parser regression', () => {
+  it('extracts post text when permalink is inside a timestamp markdown link', () => {
+    const body = `[2d](https://www.threads.com/@nandatamaaa/post/DcS8bw6E6DK)\n\nheei desainer grafis freelancer, sekarang masih di bidang yang sama atau sudah beralih profesi?\n\nTranslate`;
+    const posts = parseJinaThreadsMarkdown(body, 'nandatamaaa');
+    expect(posts).toHaveLength(1);
+    expect(posts[0].id).toBe('DcS8bw6E6DK');
+    expect(posts[0].text).toContain('desainer grafis');
+    expect(posts[0].permalink).toContain('/post/DcS8bw6E6DK');
+  });
+});
 
 // ---------------------------------------------------------------------------
 // isSafe
