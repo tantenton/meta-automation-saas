@@ -20,6 +20,8 @@ export interface CandidatePost {
   timestamp: string | null;     // ISO-8601
   reply_count?: number | null;
   like_count?: number | null;
+  /** True only when id came from an official API response and is reply-safe. */
+  reply_eligible?: boolean;
 }
 
 export interface ScoredCandidate extends CandidatePost {

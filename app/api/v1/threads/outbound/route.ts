@@ -286,7 +286,12 @@ export async function POST(request: NextRequest) {
     // -----------------------------------------------------------------------
     // 6. Pick top candidates up to maxPerRun, draft + optionally post comments
     // -----------------------------------------------------------------------
-    const topCandidates = discovery.candidates.slice(0, maxPerRun);
+    // Public-reader candidates are useful for research, but only official API
+    // results carry app-valid media IDs that Threads accepts for replies.
+    const eligibleCandidates = autoPost
+      ? discovery.candidates.filter(candidate => candidate.reply_eligible === true)
+      : discovery.candidates;
+    const topCandidates = eligibleCandidates.slice(0, maxPerRun);
 
     const drafts: Record<string, unknown>[] = [];
     const postedPermalinks: string[] = [];

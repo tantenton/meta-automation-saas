@@ -19,6 +19,14 @@ import { rankCandidates, isSafe, type CandidatePost, type ScoredCandidate } from
 
 const THREADS_GRAPH = 'https://graph.threads.net/v1.0';
 
+const TOPIC_SEARCH_TERMS: Record<keyof PersonaWeights, string[]> = {
+  ai_coding: ['AI coding', 'developer tools'],
+  productivity: ['productivity', 'kerja remote'],
+  desk_setup: ['desk setup', 'workspace'],
+  digital_focus: ['digital focus', 'notifikasi'],
+  quarter_life: ['quarter life', 'karir'],
+};
+
 export interface TrendCandidate {
   username: string;
   user_id?: string | null;    // numeric Threads user ID if known
@@ -72,6 +80,57 @@ export async function fetchOwnPostTexts(
 }
 
 // ---------------------------------------------------------------------------
+// Official public keyword search. Returned IDs are valid Threads media IDs and
+// therefore the only discovery results eligible for automated replies.
+// ---------------------------------------------------------------------------
+
+async function fetchViaKeywordSearch(
+  token: string,
+  personaWeights: PersonaWeights,
+  limitPerQuery = 10,
+): Promise<{ posts: CandidatePost[]; signals: ResearchSignal[] }> {
+  const posts: CandidatePost[] = [];
+  const signals: ResearchSignal[] = [];
+  const topics = (Object.entries(personaWeights) as [keyof PersonaWeights, number][])
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  for (const [topic] of topics) {
+    for (const query of TOPIC_SEARCH_TERMS[topic].slice(0, 1)) {
+      try {
+        const url = new URL(`${THREADS_GRAPH}/keyword_search`);
+        url.searchParams.set('q', query);
+        url.searchParams.set('search_type', 'RECENT');
+        url.searchParams.set('fields', 'id,text,permalink,timestamp,username,has_replies,is_quote_post,is_reply');
+        url.searchParams.set('limit', String(limitPerQuery));
+        url.searchParams.set('access_token', token);
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          signals.push({ source: 'threads_api', username: `keyword:${query}`, posts_found: 0, fetch_ok: false, error: (await res.text()).slice(0, 160) });
+          continue;
+        }
+        const payload = await res.json() as { data?: Array<{ id: string; text?: string; permalink?: string; timestamp?: string; username?: string; is_reply?: boolean }> };
+        const found = (payload.data ?? []).filter(p => p.text && !p.is_reply).map(p => ({
+          id: p.id,
+          text: p.text!.trim(),
+          username: p.username ?? 'unknown',
+          permalink: p.permalink ?? null,
+          timestamp: p.timestamp ?? null,
+          reply_count: null,
+          like_count: null,
+          reply_eligible: true,
+        }));
+        posts.push(...found);
+        signals.push({ source: 'threads_api', username: `keyword:${query}`, posts_found: found.length, fetch_ok: true });
+      } catch (e) {
+        signals.push({ source: 'threads_api', username: `keyword:${query}`, posts_found: 0, fetch_ok: false, error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+  }
+  return { posts, signals };
+}
+
+// ---------------------------------------------------------------------------
 // Fetch a target user's recent posts via Threads Graph API
 // (requires their numeric user_id — can only read public profiles via own token
 //  if the user has granted public access; falls back to Jina otherwise)
@@ -120,6 +179,7 @@ async function fetchViaThreadsApi(
         timestamp: p.timestamp ?? null,
         reply_count: p.reply_count ?? null,
         like_count: p.like_count ?? null,
+        reply_eligible: true,
       }));
 
     return { posts, ok: true };
@@ -237,7 +297,13 @@ export async function discoverTrendCandidates(opts: {
   const signals: ResearchSignal[] = [];
   const allPosts: CandidatePost[] = [];
 
-  // Step 2: fetch posts for each trend candidate
+  // Step 2: official keyword search based on the strongest persona topics.
+  // These results provide valid media IDs for live replies.
+  const keyword = await fetchViaKeywordSearch(token, personaWeights);
+  signals.push(...keyword.signals);
+  allPosts.push(...keyword.posts);
+
+  // Step 3: fetch posts for each trend candidate (research enrichment).
   for (const cand of trendCandidates) {
     let result: { posts: CandidatePost[]; ok: boolean; error?: string };
     let source: ResearchSignal['source'];
