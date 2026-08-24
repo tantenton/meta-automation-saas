@@ -1,8 +1,8 @@
-<!-- BIRRU-AG DISPATCH: repo=C:\BirruLabs\meta-automation-saas job=meta-automation-outbound-discovery-002 -->
+<!-- BIRRU-AG DISPATCH: repo=C:\BirruLabs\meta-automation-saas job=meta-automation-outbound-discovery-003 -->
 IMPORTANT: You are working EXCLUSIVELY in the repository at `C:\BirruLabs\meta-automation-saas`.
 Do NOT read, edit, or operate in any other repository or directory.
 Your task file is at `C:\BirruLabs\meta-automation-saas/.birru/tasks/ACTIVE_TASK.md`.
-Write your report to `C:\BirruLabs\meta-automation-saas/.birru/reports/meta-automation-outbound-discovery-002.md`.
+Write your report to `C:\BirruLabs\meta-automation-saas/.birru/reports/meta-automation-outbound-discovery-003.md`.
 
 ---
 
@@ -16,5 +16,5 @@ Current static targets return processed=0. Requirements:
 6. Tests: scoring, dedup, safety, empty discovery, max-per-run, API contract.
 7. Add cron-compatible trend-discovery-before-outbound script/endpoint invocation.
 8. No browser/computer-use/login. Official APIs/public HTTP only.
-9. Verify tests/lint/build. Report .birru/reports/meta-automation-outbound-discovery-002.md.
+9. Verify tests/lint/build. Report .birru/reports/meta-automation-outbound-discovery-003.md.
 Never publish comments during implementation/testing and never expose credentials.
