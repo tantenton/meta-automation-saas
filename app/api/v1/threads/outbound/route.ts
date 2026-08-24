@@ -28,7 +28,7 @@ import { getSupabaseAdmin } from '@/lib/server/supabase-admin';
 import { replyToThreadsPost, getPermalink } from '@/lib/meta-api/client';
 import { decryptToken } from '@/lib/server/token-crypto';
 import { discoverTrendCandidates, upsertDiscoveredTargets, type TrendCandidate } from '@/lib/threads/trend-discovery';
-import { rankCandidates, isSafe, type CandidatePost } from '@/lib/threads/outbound-scorer';
+import { isSafe } from '@/lib/threads/outbound-scorer';
 import { inferPersonaWeights, DEFAULT_WEIGHTS } from '@/lib/threads/persona-weights';
 
 // ---------------------------------------------------------------------------
