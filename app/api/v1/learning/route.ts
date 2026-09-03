@@ -71,7 +71,6 @@ export async function POST(request: NextRequest) {
       const { data: unseededPosts } = await db.from('posts')
         .select('id, meta_post_id, content, published_at, external_content_id')
         .eq('account_id', accountId)
-        .eq('platform', 'threads')
         .eq('status', 'published')
         .not('meta_post_id', 'is', null)
         .gte('published_at', sevenDaysAgo)
