@@ -65,6 +65,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'pending_fetch_failed', message: pendingError.message }, { status: 500 });
     }
 
+    // Debug: expose pending_metrics state
+    if ((body as Record<string,unknown>).debug) {
+      const { data: allPm } = await db.from('pending_metrics').select('id,post_id,check_after,metrics_collected,collected_at').eq('account_id', accountId).limit(20);
+      return NextResponse.json({ _debug: { pending_rows_due: pendingRows?.length, pending_error: pendingError, all_pending: allPm, now: new Date().toISOString() } });
+    }
+
     if (!pendingRows?.length) {
       // Auto-seed pending_metrics from published Threads posts (last 7 days) that haven't been seeded yet
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
