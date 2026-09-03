@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
           if (reseededRows?.length) {
             // Replace pendingRows and continue processing below
             // We reassign via a mutable ref pattern — splice into array
-            pendingRows.push(...reseededRows);
+            if (pendingRows) { pendingRows.push(...reseededRows); } else { pendingRows = reseededRows; }
           }
         }
       }
