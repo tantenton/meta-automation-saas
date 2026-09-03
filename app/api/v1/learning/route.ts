@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const token = decryptToken(account.access_token_encrypted);
 
     // Fetch pending metrics rows
-    const { data: pendingRows, error: pendingError } = await db.from('pending_metrics')
+    let { data: pendingRows, error: pendingError } = await db.from('pending_metrics')
       .select('*')
       .eq('account_id', accountId)
       .eq('metrics_collected', false)
@@ -66,7 +66,58 @@ export async function POST(request: NextRequest) {
     }
 
     if (!pendingRows?.length) {
-      return NextResponse.json({ processed: 0, patterns_updated: [], strategy_iteration: 0 });
+      // Auto-seed pending_metrics from published Threads posts (last 7 days) that haven't been seeded yet
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: unseededPosts } = await db.from('posts')
+        .select('id, meta_post_id, content, published_at, external_content_id')
+        .eq('account_id', accountId)
+        .eq('platform', 'threads')
+        .eq('status', 'published')
+        .not('meta_post_id', 'is', null)
+        .gte('published_at', sevenDaysAgo)
+        .order('published_at', { ascending: false });
+
+      if (unseededPosts?.length) {
+        // Filter out posts already in pending_metrics
+        const { data: existingSeeds } = await db.from('pending_metrics')
+          .select('post_id')
+          .eq('account_id', accountId)
+          .in('post_id', unseededPosts.map((p: { id: string }) => p.id));
+
+        const existingIds = new Set((existingSeeds || []).map((r: { post_id: string }) => r.post_id));
+        const toSeed = unseededPosts.filter((p: { id: string }) => !existingIds.has(p.id));
+
+        if (toSeed.length) {
+          const seedRows = toSeed.map((p: { id: string; meta_post_id: string; content: string; published_at: string }) => ({
+            account_id: accountId,
+            post_id: p.id,
+            threads_post_id: p.meta_post_id,
+            content: p.content,
+            published_at: p.published_at,
+            check_after: new Date(new Date(p.published_at).getTime() + 24 * 60 * 60 * 1000).toISOString(),
+            metrics_collected: false,
+          }));
+          await db.from('pending_metrics').insert(seedRows);
+
+          // Re-fetch pending rows that are now due
+          const { data: reseededRows } = await db.from('pending_metrics')
+            .select('*')
+            .eq('account_id', accountId)
+            .eq('metrics_collected', false)
+            .lte('check_after', new Date().toISOString())
+            .order('check_after', { ascending: true });
+
+          if (reseededRows?.length) {
+            // Replace pendingRows and continue processing below
+            // We reassign via a mutable ref pattern — splice into array
+            pendingRows.push(...reseededRows);
+          }
+        }
+      }
+
+      if (!pendingRows?.length) {
+        return NextResponse.json({ processed: 0, patterns_updated: [], strategy_iteration: 0 });
+      }
     }
 
     // Fetch max_likes_seen across all posts for this account
