@@ -68,6 +68,17 @@ export async function POST(request: NextRequest) {
     if (!pendingRows?.length) {
       // Auto-seed pending_metrics from published Threads posts (last 7 days) that haven't been seeded yet
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const _debugSeedQuery = await db.from('posts')
+        .select('id,meta_post_id,status,published_at,account_id')
+        .eq('account_id', accountId)
+        .not('meta_post_id','is',null)
+        .eq('status','published')
+        .gte('published_at', sevenDaysAgo)
+        .limit(5);
+      const _debugPending = await db.from('pending_metrics').select('id').eq('account_id', accountId).limit(5);
+      if (body.debug) {
+        return NextResponse.json({ _debug: { unseeded_posts: _debugSeedQuery.data, unseeded_error: _debugSeedQuery.error?.message, pending_rows: _debugPending.data, pending_error: _debugPending.error?.message, seven_days_ago: sevenDaysAgo, account_id: accountId } });
+      }
       const { data: unseededPosts } = await db.from('posts')
         .select('id, meta_post_id, content, published_at, external_content_id')
         .eq('account_id', accountId)
