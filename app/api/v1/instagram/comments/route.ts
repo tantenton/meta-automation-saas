@@ -44,13 +44,13 @@ export async function GET(request: NextRequest) {
 
     const accessToken = decryptToken(account.access_token_encrypted);
 
-    // Ambil postingan reels yang sudah published
+    // Ambil postingan reels yang sudah published (gunakan meta_post_id bukan container meta_media_id)
     const { data: posts, error: postsError } = await db
       .from('posts')
       .select('id, content, meta_media_id, meta_post_id, permalink, published_at')
       .eq('account_id', parsed.account_id)
       .eq('status', 'published')
-      .not('meta_media_id', 'is', null)
+      .not('meta_post_id', 'is', null)
       .order('published_at', { ascending: false })
       .limit(parsed.limit);
 
@@ -58,12 +58,12 @@ export async function GET(request: NextRequest) {
 
     const results = [];
     for (const post of posts || []) {
-      const mediaId = post.meta_media_id;
+      const targetMediaId = post.meta_post_id || post.meta_media_id;
       try {
-        const commentsData = await getInstagramComments(accessToken, mediaId);
+        const commentsData = await getInstagramComments(accessToken, targetMediaId);
         results.push({
           post_id: post.id,
-          meta_media_id: mediaId,
+          meta_post_id: targetMediaId,
           post_caption: post.content,
           permalink: post.permalink,
           comments: commentsData.data || [],
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
       } catch (err) {
         results.push({
           post_id: post.id,
-          meta_media_id: mediaId,
+          meta_post_id: targetMediaId,
           post_caption: post.content,
           error: String(err),
           comments: [],
