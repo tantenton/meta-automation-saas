@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { authorizeMachine } from '@/lib/server/api-auth';
 import { getSupabaseAdmin } from '@/lib/server/supabase-admin';
 import { decryptToken } from '@/lib/server/token-crypto';
-import { getInstagramComments, replyToInstagramComment, getPermalink } from '@/lib/meta-api/client';
+import { getInstagramComments, replyToInstagramComment } from '@/lib/meta-api/comments';
 
 const querySchema = z.object({
   account_id: z.string().uuid().default('b7d117a0-9daf-4b5c-97a0-b08b7044f178'), // default officialmindcast
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/v1/instagram/comments/reply
+ * POST /api/v1/instagram/comments
  * Mengirim balasan ke komentar Instagram
  */
 export async function POST(request: NextRequest) {
