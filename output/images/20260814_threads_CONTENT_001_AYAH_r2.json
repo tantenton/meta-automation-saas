@@ -1,0 +1,19 @@
+{
+  "content_id": "CONTENT_001_AYAH",
+  "revision": "r2",
+  "generated_at": "2026-08-14T10:57:58Z",
+  "file_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r2.jpg",
+  "metadata_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r2.json",
+  "prompt": "Close-up documentary photograph of an Indonesian man around 55 years old repairing an old motorbike engine, framed tightly on his upper body and hands. One hand holds a wrench partially obscured by the engine block, the other rests on a grimy metal surface. The frame is intentionally cropped so no motorcycle body panels, labels, plates, or legible markings appear — only engine components, oil-stained hands, and worn tools. Background: a modest Indonesian wooden house with warm sunset light filtering through, soft golden bokeh. Cinematic documentary realism, shallow depth of field, warm amber tones, film grain, no studio lighting.",
+  "negative_prompt": "any text, letters, words, numbers, signage, logo, brand name, license plate, number plate, watermark, poster, quote, typography, inscription, readable text of any kind, malformed hands, extra fingers, fused fingers, six fingers, duplicate limbs, deformed anatomy, floating limbs, CGI render, plastic skin, oversmoothed skin, stock photo look, unrealistic lighting",
+  "model": "@cf/black-forest-labs/flux-1-schnell",
+  "upload": false,
+  "content_type": "image/jpeg",
+  "actual_mime": "image/jpeg",
+  "dimensions": "1024x1024",
+  "file_size_bytes": 648979,
+  "sha256": "e22cc5cda5e7f8eeaddaea1d3c600d112d8e16e3a6379a8c3bfed43ecbfddc42",
+  "previous_revision": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r1.jpg",
+  "fix_notes": "r1 QC 65/100: text artifact on motorcycle + distorted left hand. r2: removed num_steps, tighter crop prompt, obscured hands, no panel labels",
+  "published": false
+}

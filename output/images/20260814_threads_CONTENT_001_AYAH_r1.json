@@ -1,0 +1,18 @@
+{
+  "content_id": "CONTENT_001_AYAH",
+  "revision": 1,
+  "platform": "threads",
+  "generation_time_utc": "2026-08-14T10:40:14.989337Z",
+  "elapsed_seconds": 3.64,
+  "model": "@cf/black-forest-labs/flux-1-schnell",
+  "endpoint": "REDACTED",
+  "mime": "image/jpeg",
+  "extension": "jpg",
+  "width": 1024,
+  "height": 1024,
+  "size_bytes": 680063,
+  "sha256": "ee17a3671b0ffeddbf58ba0aaf53a4d5832e001504c10928f555c5bc3385dcbe",
+  "prompt_hash": "fe40f25a07e4f106",
+  "qc_status": "pending",
+  "http_status": 200
+}

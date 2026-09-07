@@ -1,0 +1,32 @@
+{
+  "content_id": "CONTENT_001_AYAH",
+  "revision": "r5",
+  "generated_at": "2026-08-14T11:10:14Z",
+  "file_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r5.jpg",
+  "metadata_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r5.json",
+  "prompt": "Documentary portrait photograph of an elderly Indonesian man about 55 years old, photographed from behind at medium distance at golden hour. The man stands alone in an open grassy field, facing away from camera toward the horizon. He wears a plain faded grey batik shirt and dark trousers. Both arms hang naturally at his sides, wrists and hands tucked behind his back or hidden by his body. NO motorcycle in frame. NO vehicle. NO objects. Background is a wide open Indonesian countryside with tall grass, a dirt path, and a dramatic deep orange sunset sky with scattered clouds. Cinematic film photography, 35mm grain, warm golden backlight silhouetting his shoulders, no text, no signs, no labels, no watermarks anywhere.",
+  "model": "@cf/black-forest-labs/flux-1-schnell",
+  "upload": false,
+  "content_type": "image/jpeg",
+  "dimensions": "1024x1024",
+  "file_size_bytes": 710750,
+  "sha256": "1aedc59e4176ed1c8b7dbcc5f24dada1baf2d2d9b236f9ab45cf6f44a31883dd",
+  "previous_revision": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r4.jpg",
+  "fix_notes": "r3 QC 75/100: text on bike. r4 QC 60/100: text persists + hand visible. r5: motorbike removed entirely from prompt to eliminate text artifact source, man alone in field",
+  "published": false,
+  "qc_score": 85,
+  "qc_status": "PASS",
+  "qc_checked_at": "2026-08-14T11:10:58Z",
+  "qc_notes": "PASS 85/100. No text artifacts. Hands pass (correctly rendered, no distortion). Back view framing correct. Sunset lighting correct. Rural Indonesian field background correct. Minor synthetic texture noted but below hard-fail threshold. Ready for publish.",
+  "qc_criteria": {
+    "readable_text": "PASS",
+    "visible_hands": "PASS",
+    "correct_subject": "PASS",
+    "correct_framing": "PASS",
+    "sunset_lighting": "PASS",
+    "rural_background": "PASS",
+    "documentary_style": "FAIL - minor AI smoothness",
+    "anatomical_distortion": "PASS"
+  },
+  "publish_ready": true
+}

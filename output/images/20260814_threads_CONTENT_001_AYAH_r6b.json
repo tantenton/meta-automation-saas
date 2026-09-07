@@ -1,0 +1,23 @@
+{
+  "content_id": "CONTENT_001_AYAH",
+  "revision": "r6b",
+  "generated_at": "2026-08-14T11:34:18Z",
+  "file_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r6b.jpg",
+  "metadata_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r6b.json",
+  "prompt": "Wide establishing shot of a lone older Indonesian father figure, tiny and distant, back-facing, standing beside a modest rural kampung house with a small yard at golden sunset. Subject is a pure merged silhouette arms fully absorbed into torso no hands no fingers. Subject tiny in lower-center of frame. Vast amber orange sunset sky. Flat Indonesian rural landscape low thatched roof house dark tree silhouettes on horizon. No motorbike no tools. Cinematic wide-angle film grain warm backlight.",
+  "negative_prompt": "text letters numbers gibberish sign logo watermark poster quote hands fingers visible anatomy extra limbs distorted body parts floating limbs detailed face close-up skin CGI render glossy synthetic",
+  "model": "@cf/black-forest-labs/flux-1-schnell",
+  "upload": false,
+  "content_type": "image/jpeg",
+  "dimensions": "1024x1024",
+  "file_size_bytes": 532025,
+  "sha256": "3afee147f3283e6be8905bf8776beccc79465a5a614cba13383d7d5350327956",
+  "previous_revision": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r5.jpg",
+  "fix_notes": "r5 QC 82 hand anatomy. r6: wide distant silhouette, arms merged into torso, no discernible limbs, subject tiny lower-center, vast sunset sky dominates frame.",
+  "published": false,
+  "qc_score": null,
+  "qc_status": "PENDING",
+  "qc_checked_at": null,
+  "qc_notes": "Pending QC review",
+  "publish_ready": false
+}

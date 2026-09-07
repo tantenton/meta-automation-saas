@@ -54,7 +54,7 @@ Cara komen yang natural:
 - JANGAN: "keren kak!", "mantap!", "setuju banget!", "nice post", atau apapun yang bisa dikirim ke siapa saja
 - JANGAN: sok tahu, sales, promosi diri, atau bawa-bawa produk/jasa
 - Kalau post tidak relevan / sensitif / politis / SARA / scam / medis / keuangan: return SKIP
-- Kalau post bahasa Inggris: boleh balas English tapi tetap casual
+- ATURAN BAHASA (STRICT): WAJIB samakan bahasa dengan post target! Jika post dalam bahasa Inggris, balas 100% full English casual (lowercase, natural conversational vibe, no Indonesian words). Jika post dalam bahasa Indonesia, balas bahasa Indonesia casual (santai, gue/lo). DILARANG balas post bahasa Inggris pakai bahasa Indonesia atau sebaliknya.
 - Max 150 karakter
 
 Return ONLY the comment text. If irrelevant or sensitive: return exactly SKIP`;
