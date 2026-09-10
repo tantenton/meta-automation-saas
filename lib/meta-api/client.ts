@@ -77,9 +77,20 @@ export async function createThreadsContainer(input: {
   replyToId?: string; // if set, creates a reply to the given post/container ID
 }): Promise<string> {
   const url = addToken(new URL(`${THREADS_GRAPH}/${input.accountId}/threads`), input.token);
-  const body = new URLSearchParams({ text: input.text, media_type: input.mediaType.toUpperCase() });
-  if (input.mediaType === 'image' && input.mediaUrl) body.set('image_url', input.mediaUrl);
-  if (input.mediaType === 'video' && input.mediaUrl) body.set('video_url', input.mediaUrl);
+  const body = new URLSearchParams();
+  const mt = input.mediaType || (input.mediaUrl ? 'image' : 'text');
+  if (mt === 'text') {
+    body.set('media_type', 'TEXT');
+    if (input.text) body.set('text', input.text);
+  } else if (mt === 'image') {
+    body.set('media_type', 'IMAGE');
+    body.set('image_url', input.mediaUrl || '');
+    if (input.text) body.set('text', input.text);
+  } else if (mt === 'video') {
+    body.set('media_type', 'VIDEO');
+    body.set('video_url', input.mediaUrl || '');
+    if (input.text) body.set('text', input.text);
+  }
   if (input.replyToId) body.set('reply_to_id', input.replyToId);
   const data = await metaFetch(url, { method: 'POST', body }) as Record<string, unknown>;
   return data.id as string;
@@ -165,7 +176,7 @@ export async function publishFacebookVideo(input: {
 export async function getPermalink(platform: 'instagram' | 'threads' | 'facebook', token: string, postId: string): Promise<string | null> {
   const base = platform === 'threads' ? THREADS_GRAPH : platform === 'instagram' ? INSTAGRAM_GRAPH : FACEBOOK_GRAPH;
   const url = addToken(new URL(`${base}/${postId}`), token);
-  url.searchParams.set('fields', 'id,permalink,permalink_url');
+  url.searchParams.set('fields', 'id,permalink');
   const data = await metaFetch(url) as Record<string, unknown>;
-  return (data.permalink_url as string) || (data.permalink as string) || null;
+  return (data.permalink as string) || null;
 }
