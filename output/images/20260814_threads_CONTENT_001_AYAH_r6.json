@@ -1,0 +1,19 @@
+{
+  "content_id": "CONTENT_001_AYAH",
+  "revision": "r6",
+  "generated_at": "2026-08-14T11:29:17.524591Z",
+  "file_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r6.jpg",
+  "metadata_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r6.json",
+  "prompt": "Documentary portrait photograph of an elderly Indonesian man about 55 years old, photographed from behind at medium distance at golden hour. The man stands alone in an open grassy field, facing away from camera toward the horizon. He wears a plain faded grey batik shirt and dark trousers. Both arms hang naturally at his sides, wrists and hands tucked behind his back or hidden by his body. NO motorcycle in frame. NO vehicle. NO objects. Background is a wide open Indonesian countryside with tall grass, a dirt path, and a dramatic deep orange sunset sky with scattered clouds. Cinematic film photography, 35mm grain, warm golden backlight silhouetting his shoulders, no text, no signs, no labels, no watermarks anywhere.",
+  "model": "@cf/black-forest-labs/flux-1-schnell",
+  "upload": false,
+  "content_type": "image/jpeg",
+  "dimensions": "1024x1024",
+  "file_size_bytes": 583023,
+  "sha256": "68c0e707356409bd8355703916a03d80a478e5c168bfd610dc73ed55d044d550",
+  "previous_revision": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r5.jpg",
+  "fix_notes": "r6: generated via Vercel production API (CRON_SECRET auth); r5 QC PASS 85 but file path disputed; r6 regenerated to AWS path for evidence",
+  "published": false,
+  "qc_status": "pending",
+  "publish_ready": false
+}

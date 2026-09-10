@@ -1,13 +1,13 @@
 /**
  * POST /api/v1/generate-image
  *
- * Generate an image via Cloudflare AI, upload to Supabase Storage,
- * and return a public URL ready for Instagram posting.
+ * Generate an image via Gemini / 9Router (default), upload to Supabase Storage,
+ * and return a public URL ready for Instagram / Facebook posting.
  *
  * Body:
  *   prompt       string  required  — image description
- *   model        string  optional  — CF model ID (defaults to flux-1-schnell)
- *   num_steps    number  optional  — inference steps (model-dependent)
+ *   model        string  optional  — Image model ID (defaults to ag/gemini-3.1-flash-image)
+ *   size         string  optional  — 1024x1024, 1024x1792, 1792x1024 (default: 1024x1024)
  *   upload       boolean optional  — if false, returns base64 only (default: true)
  */
 
@@ -15,6 +15,7 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeMachine } from '@/lib/server/api-auth';
 import { getSupabaseAdmin } from '@/lib/server/supabase-admin';
+import { generateGeminiImage } from '@/lib/gemini-image';
 import { generateImageCF, CFImageModel } from '@/lib/cloudflare-ai';
 
 export async function POST(request: NextRequest) {
@@ -33,18 +34,43 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'prompt_required' }, { status: 400 });
   }
 
-  const model = (body.model as CFImageModel | undefined) ?? '@cf/black-forest-labs/flux-1-schnell';
+  const reqModel = typeof body.model === 'string' ? body.model : undefined;
+  const size = typeof body.size === 'string' ? body.size : '1024x1024';
   const num_steps = typeof body.num_steps === 'number' ? body.num_steps : undefined;
   const shouldUpload = body.upload !== false;
 
   try {
-    // 1. Generate image via Cloudflare AI
-    const { imageBuffer, contentType } = await generateImageCF({ prompt, model, num_steps });
+    let imageBuffer: Buffer;
+    let contentType: 'image/jpeg' | 'image/png';
+    let usedModel = reqModel || 'ag/gemini-3.1-flash-image';
+
+    // If explicit Cloudflare model requested
+    if (reqModel && reqModel.startsWith('@cf/')) {
+      const cfRes = await generateImageCF({
+        prompt,
+        model: reqModel as CFImageModel,
+        num_steps,
+      });
+      imageBuffer = cfRes.imageBuffer;
+      contentType = cfRes.contentType;
+      usedModel = cfRes.model;
+    } else {
+      // Default: Gemini Image via 9Router / Google Imagen
+      const geminiRes = await generateGeminiImage({
+        prompt,
+        model: reqModel,
+        size,
+        num_steps,
+      });
+      imageBuffer = geminiRes.imageBuffer;
+      contentType = geminiRes.contentType;
+      usedModel = geminiRes.model;
+    }
 
     // 2. Optionally upload to Supabase Storage
     if (!shouldUpload) {
       return NextResponse.json({
-        model,
+        model: usedModel,
         prompt,
         image_base64: imageBuffer.toString('base64'),
         content_type: contentType,
@@ -52,7 +78,8 @@ export async function POST(request: NextRequest) {
     }
 
     const bucket = process.env.SUPABASE_MEDIA_BUCKET || 'meta-media';
-    const path = `generated/${new Date().toISOString().slice(0, 10)}/${randomUUID()}.jpg`;
+    const ext = contentType === 'image/png' ? 'png' : 'jpg';
+    const path = `generated/${new Date().toISOString().slice(0, 10)}/${randomUUID()}.${ext}`;
     const db = getSupabaseAdmin();
 
     const { error: uploadError } = await db.storage
@@ -65,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        model,
+        model: usedModel,
         prompt,
         media_id: path,
         bucket,

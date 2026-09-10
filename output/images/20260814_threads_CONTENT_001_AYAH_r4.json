@@ -1,0 +1,17 @@
+{
+  "content_id": "CONTENT_001_AYAH",
+  "revision": "r4",
+  "generated_at": "2026-08-14T11:08:42Z",
+  "file_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r4.jpg",
+  "metadata_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r4.json",
+  "prompt": "Documentary photograph of an elderly Indonesian man about 55 years old, viewed entirely from behind, standing next to a rusted old motorbike at sunset in rural Indonesia. The man wears a plain faded shirt and loose trousers, both arms hanging straight down at his sides, completely hidden by his body from this rear angle. The motorbike frame is heavily rusted with no markings, no numbers, no letters, no brand logos, no plate of any kind \u2014 only bare corroded metal surfaces and a worn leather seat. Background is open rice paddies under a deep golden-orange sunset sky. Shallow depth of field, warm amber light, documentary film photography style, grainy film texture, no text visible anywhere, no hands visible, no labels.",
+  "model": "@cf/black-forest-labs/flux-1-schnell",
+  "upload": false,
+  "content_type": "image/jpeg",
+  "dimensions": "1024x1024",
+  "file_size_bytes": 632452,
+  "sha256": "b49c5d14cda965312595acc90e423014d0c05c2a925ffee4239c15d6e1d8d678",
+  "previous_revision": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r3.jpg",
+  "fix_notes": "r3 QC 75/100: text artifacts 057 and CAIARRE on motorbike. r4: stronger anti-text prompt, plain worn batik removed, bare corroded metal, no brand/plate/markings",
+  "published": false
+}

@@ -1,0 +1,17 @@
+{
+  "content_id": "CONTENT_001_AYAH",
+  "revision": "r3",
+  "generated_at": "2026-08-14T11:07:21Z",
+  "file_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r3.jpg",
+  "metadata_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r3.json",
+  "prompt": "Documentary photograph of an Indonesian man around 55 years old standing beside an old weathered motorbike at golden hour sunset. Framed from medium distance, shot from behind and slightly to the side \u2014 the man faces away from camera, his back and shoulders visible, arms relaxed at his sides. He wears a simple batik shirt, worn trousers, sandals. The old motorbike beside him is partially cropped, showing only rusted frame and seat \u2014 no license plates, no labels, no readable markings anywhere in the frame. Background: rural Indonesian countryside, rice fields, warm amber and orange sunset sky, long golden shadows. Cinematic documentary realism, shallow depth of field, film grain, warm tones, no studio lighting, no text, no hands visible.",
+  "model": "@cf/black-forest-labs/flux-1-schnell",
+  "upload": false,
+  "content_type": "image/jpeg",
+  "dimensions": "1024x1024",
+  "file_size_bytes": 624729,
+  "sha256": "df9cad0640900dc1c645a2e019289653c6d393306221053eb1276b35bc1c2cf4",
+  "previous_revision": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r2.jpg",
+  "fix_notes": "r1 QC 65/100: text artifact + distorted hand. r2 QC fail: hands still visible. r3: back/side framing, arms relaxed at sides, no hands visible, no readable markings",
+  "published": false
+}

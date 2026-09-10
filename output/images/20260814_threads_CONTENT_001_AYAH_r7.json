@@ -1,0 +1,19 @@
+{
+  "content_id": "CONTENT_001_AYAH",
+  "revision": "r7",
+  "generated_at": "2026-08-14T11:36:11.357392Z",
+  "file_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r7.jpg",
+  "metadata_path": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r7.json",
+  "prompt": "Pure distant silhouette composition, wide cinematic square crop. A tiny solitary back-facing elderly Indonesian father figure standing alone on a narrow rural dirt path, figure is very small occupying less than 8 percent of total image height, pure solid dark silhouette, arms completely dissolved and merged into body silhouette mass, absolutely zero visible hands, zero visible fingers, zero limb separation, zero anatomy detail, zero face detail. A humble modest Indonesian village house as a tiny dark silhouette at the far horizon. Lush rice paddies and tall tropical grass flanking both sides of the path. Dramatic deep orange crimson golden sunset sky filling most of the frame, scattered clouds with warm god-rays, golden hour light. Ultra-wide cinematic landscape composition cropped square 1:1. 35mm film photography grain, warm tones, documentary emotional style. No hands. No fingers. No text. No letters. No numbers. No signs. No logos. No watermarks. No motorbike. No vehicle. No tools. No engine. No readable surfaces. No extra limbs. No duplicate figures. No CGI. No anatomy detail. No face detail. No poster. No quote. No malformed limbs.",
+  "model": "@cf/black-forest-labs/flux-1-schnell",
+  "upload": false,
+  "content_type": "image/jpeg",
+  "dimensions": "1024x1024",
+  "file_size_bytes": 595760,
+  "sha256": "37b7f85b53f361eaa126b855953d5ba19dd8263b9e371571ba34e41b098df540",
+  "previous_revision": "/home/ubuntu/meta-automation-saas/output/images/20260814_threads_CONTENT_001_AYAH_r6.jpg",
+  "fix_notes": "r7: pure distant silhouette composition fix. r6 QC score 75 failed due to blurred left hand. r7 uses tiny back-facing silhouette (<8% image height), arms fully merged into body silhouette, zero visible hands/fingers/anatomy. Wide cinematic landscape square crop.",
+  "published": false,
+  "qc_status": "pending",
+  "publish_ready": false
+}

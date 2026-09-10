@@ -114,6 +114,12 @@ export async function getThreadsReplies(token: string, postId: string, fields = 
   return metaFetch(url) as Promise<Record<string, unknown>>;
 }
 
+export async function deleteThreadsPost(token: string, postId: string): Promise<{ success: boolean }> {
+  const url = addToken(new URL(`${THREADS_GRAPH}/${postId}`), token);
+  const data = await metaFetch(url, { method: 'DELETE' }) as Record<string, unknown>;
+  return { success: data?.success === true || data?.deleted === true };
+}
+
 export async function getThreadsConversation(token: string, postId: string, fields = 'id,text,username,timestamp,has_replies,replied_to'): Promise<Record<string, unknown>> {
   const url = addToken(new URL(`${THREADS_GRAPH}/${postId}/conversation`), token);
   url.searchParams.set('fields', fields);
